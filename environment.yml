@@ -1,0 +1,41 @@
+name: rs
+# To create the environment, run:
+#   conda env create -f environment.yml
+# To update the environment, run:
+#   conda env update -f environment.yml
+
+channels:
+  - defaults
+  - conda-forge
+show_channel_urls: true
+
+dependencies:
+  # Core language
+  - python=3.12
+
+  # Base scientific stack
+  - numpy
+  - pandas
+  - scipy
+  - pint
+
+  # Plotting & visualization
+  - matplotlib
+  - plotly
+
+  # Jupyter ecosystem
+  - ipykernel
+  - ipython
+  - jupyter
+  - nbconvert
+  - nb_conda_kernels
+
+  # Excel I/O
+  - xlrd
+
+  # Pip for PyPI installs
+  - pip
+
+  # Install ROSS project in editable mode with dev dependencies
+  - pip:
+      - -e .[dev]
