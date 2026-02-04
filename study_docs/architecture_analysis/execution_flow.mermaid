@@ -1,0 +1,21 @@
+flowchart TD
+    Start((Start)) --> Material["Define Material<br/>(Density, Youngs Modulus)"]
+    Material --> ShaftCreation["Create Shaft Elements<br/>(Loop over segments)"]
+    
+    subgraph Elements Creation
+    ShaftCreation --> ElementsList[List of ShaftElements]
+    DiskDef["Define Disk Elements<br/>(Mass, Inertia, Node)"] --> DiskList[List of DiskElements]
+    BrgDef["Define Bearing Elements<br/>(Stiffness, Damping, Node)"] --> BrgList[List of BearingElements]
+    end
+    
+    ElementsList --> RotorAssy["Instantiate Rotor Class<br/>rs.Rotor(shafts, disks, bearings)"]
+    DiskList --> RotorAssy
+    BrgList --> RotorAssy
+    
+    RotorAssy --> GlobalMatrices["Internal: Build Global<br/>M, K, C, G Matrices"]
+    GlobalMatrices --> Analysis["Run Analysis<br/>(e.g., run_modal, run_campbell)"]
+    
+    Analysis --> Visualization["Visualization<br/>(plot_rotor, campbell_diagram)"]
+    Analysis --> Results[Numerical Results]
+    
+    Visualization --> End((End))
