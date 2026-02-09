@@ -1,20 +1,15 @@
 name: rs
 # To create the environment, run:
-#   conda env create -f environment.yml
+#   mamba env create -f environment.yml
 # To update the environment, run:
-#   conda env update -f environment.yml
-
-channels:
-  - defaults
-  - conda-forge
-show_channel_urls: true
+#   mamba env update -f environment.yml
 
 dependencies:
   # Core language
   - python=3.12
 
   # Base scientific stack
-  - numpy
+  - numpy<=2.3
   - pandas
   - scipy
   - pint
