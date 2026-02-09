@@ -4,6 +4,7 @@ from tempfile import tempdir
 
 import numpy as np
 import pytest
+from scipy.signal import find_peaks
 from numpy.testing import assert_allclose, assert_almost_equal, assert_equal
 
 from ross import SensitivityResults
@@ -2287,194 +2288,75 @@ def test_ucs_calc(rotor8):
 
 
 def test_ucs_rotor9(rotor9):
+    # Simplified test: use num=5 instead of num=20 to reduce test time (~75% faster)
     exp_rotor_wn = np.array(
         [
             [
-                89.61923784473375,
-                120.89655743664413,
-                162.59246554800114,
-                217.42553100241312,
-                287.6459465590863,
-                372.935347725518,
-                466.2581426686537,
-                551.4076269641628,
-                613.1237259191993,
-                650.4689786203988,
-                671.2479800816767,
-                682.5353774789179,
-                688.6485929814294,
-                691.965477524608,
-                693.7688181845082,
-                694.7506707995042,
-                695.2857209934174,
-                695.577438207025,
-                695.7365318523782,
-                695.8233102639163,
+                89.61923786,
+                350.42266504,
+                662.41928664,
+                694.07268245,
+                695.82331031,
             ],
             [
-                124.8108608009496,
-                168.92618197956605,
-                228.5753022242499,
-                309.1399173060739,
-                417.7337051968829,
-                563.5536938601297,
-                757.9439326311913,
-                1013.3462956039914,
-                1338.3333635278868,
-                1716.48711727428,
-                2004.8471556137,
-                2078.8761601177744,
-                2097.725398329982,
-                2104.9250739620065,
-                2108.224809182831,
-                2109.8706285775806,
-                2110.7269388638374,
-                2111.182371668304,
-                2111.427443127732,
-                2111.5601496202053,
+                124.81086083,
+                523.02183296,
+                1891.18155397,
+                2108.7448203,
+                2111.56014972,
             ],
             [
-                976.610014941276,
-                979.8071596437271,
-                985.7435440438873,
-                996.8720841293019,
-                1018.0435385669914,
-                1059.040021915284,
-                1138.8336540231767,
-                1287.1396017447778,
-                1530.728131538211,
-                1866.6004173519655,
-                2224.740955271474,
-                2566.1521460703593,
-                2812.5568536324695,
-                2954.956819348177,
-                3030.8828351975917,
-                3070.974195701119,
-                3092.3284826481,
-                3103.806643182663,
-                3110.0148616594533,
-                3113.3854057718704,
+                976.61001489,
+                1046.09648924,
+                2047.58519431,
+                3043.40464892,
+                3113.38540495,
             ],
             [
-                2159.640747974065,
-                2159.756470270719,
-                2159.969971035258,
-                2160.366035282546,
-                2161.1082776995636,
-                2162.5260227884364,
-                2165.334410630516,
-                2171.3131180341056,
-                2186.1348008252444,
-                2238.1871377763114,
-                2490.9613952181917,
-                2978.354255657329,
-                3456.7805801535656,
-                3814.959990456543,
-                4040.908191796628,
-                4171.396315088025,
-                4244.09186723666,
-                4284.062958149884,
-                4305.937322108033,
-                4317.887004191494,
+                2159.64074905,
+                2162.07931839,
+                2321.68023491,
+                4080.81909788,
+                4317.88700623,
             ],
         ]
     )
-    ucs_results = rotor9.run_ucs()
+    ucs_results = rotor9.run_ucs(num=5)
     assert_allclose(ucs_results.wn, exp_rotor_wn)
 
     exp_rotor_wn = np.array(
         [
             [
-                89.61947064,
-                120.89741889,
-                162.5960395,
-                217.44095694,
-                287.71229812,
-                373.20676063,
-                467.22436151,
-                554.01174191,
-                618.0228653,
-                657.38198264,
-                679.5050572,
-                691.58822264,
-                698.15087843,
-                701.71684971,
-                703.65712249,
-                704.71396966,
-                705.29001687,
-                705.60412456,
-                705.77544067,
+                89.61947056,
+                350.61514002,
+                670.08583401,
+                703.98416314,
                 705.86888929,
             ],
             [
-                126.08902147,
-                170.65739193,
-                230.92107312,
-                312.32101392,
-                422.05546021,
-                569.45142419,
-                766.09122048,
-                1025.02536231,
-                1357.18701994,
-                1759.29639866,
-                2139.22396755,
-                2225.72234144,
-                2241.24852987,
-                2246.71661805,
-                2249.14967666,
-                2250.34715925,
-                2250.96610863,
-                2251.29417729,
-                2251.47039346,
-                2251.56572169,
+                126.08902134,
+                528.47472934,
+                1971.00830161,
+                2249.52916259,
+                2251.5657217,
             ],
             [
                 1006.73169597,
-                1010.04096437,
-                1016.17902002,
-                1027.66388689,
-                1049.44232444,
-                1091.39953214,
-                1172.55460038,
-                1322.87033841,
-                1570.73575288,
-                1916.3041552,
-                2265.71692139,
-                2655.54276614,
-                2969.42618151,
-                3163.00092959,
-                3269.25575144,
-                3325.84538219,
-                3356.03761948,
-                3372.26520948,
-                3381.03936768,
+                1078.17877977,
+                2100.24701415,
+                3286.9082896,
                 3385.80171304,
             ],
             [
                 2282.84557629,
-                2282.91523796,
-                2283.04371506,
-                2283.28189556,
-                2283.72771552,
-                2284.57736115,
-                2286.25338975,
-                2289.79373785,
-                2298.45136454,
-                2328.81587039,
-                2527.00408181,
-                3011.54457196,
-                3511.90570401,
-                3911.96812784,
-                4184.16765863,
-                4351.24520897,
-                4448.09334563,
-                4502.60333569,
-                4532.82984364,
+                2284.30991972,
+                2383.54778909,
+                4234.40738673,
                 4549.46314886,
             ],
         ]
     )
-    ucs_results = rotor9.run_ucs(synchronous=True)
+    ucs_results = rotor9.run_ucs(synchronous=True, num=5)
     assert_allclose(ucs_results.wn, exp_rotor_wn, rtol=1e-6)
 
 
@@ -2651,32 +2533,144 @@ def test_rotor_conical_frequencies(rotor_conical):
     assert_allclose(modal.wn, expected_wn, rtol=1e-5)
 
 
+def test_harmonic_response(rotor9):
+    speed = 200.0
+    t = np.arange(0, 10, 1e-4)
+
+    A1, A2, A3 = 1.0, 10.0, 5.0
+    p1, p2, p3 = 0.0, 0.0, 0.0
+    m, e = 0.2, 0.01
+
+    probe = Probe(15, Q_(45, "deg"))
+
+    hb_results = rotor9.run_harmonic_balance_response(
+        speed=speed,
+        t=t,
+        harmonic_forces=[
+            {
+                "node": 29,
+                "magnitudes": [A1, A2, A3],
+                "phases": [p1, p2, p3],
+                "harmonics": [1, 2, 3],
+            },
+            {
+                "node": 33,
+                "magnitudes": [m * e * speed**2],
+                "phases": [0],
+                "harmonics": [1],
+            },
+        ],
+        n_harmonics=3,
+    )
+
+    hb_fig = hb_results.plot([probe], frequency_units="Hz")
+
+    hb_time_resp = hb_results.get_time_response()
+    hb_fig = hb_time_resp.plot_dfft(
+        probe=[probe],
+        frequency_units="Hz",
+        frequency_range=(0, 100),
+        yaxis_type="log",
+        fig=hb_fig,
+    )
+
+    x_hb = np.nan_to_num(np.array(hb_fig.data[0].x, dtype=float), nan=0)
+    y_hb = np.nan_to_num(np.array(hb_fig.data[0].y, dtype=float), nan=0)
+    idx_hb = find_peaks(y_hb)[0]
+    x_hb = x_hb[idx_hb]
+    y_hb = y_hb[idx_hb]
+
+    x_dfft = np.array(hb_fig.data[1].x)
+    y_dfft = np.array(hb_fig.data[1].y)
+    idx_dfft = find_peaks(y_dfft)[0]
+    x_dfft = x_dfft[idx_dfft]
+    y_dfft = y_dfft[idx_dfft]
+
+    x = np.array([31.83098861837907, 63.66197723675814, 95.49296585513721])
+    y = np.array(
+        [2.1140161650605384e-07, 3.479347424205027e-08, 2.1467969724866964e-08]
+    )
+
+    assert_allclose(x_hb, x_dfft, rtol=1e-3, atol=1e-6)
+    assert_allclose(x_hb, x, rtol=1e-3, atol=1e-6)
+    assert_allclose(y_hb, y_dfft, rtol=1e-3, atol=1e-6)
+    assert_allclose(y_hb, y, rtol=1e-3, atol=1e-6)
+
+
 def test_amb_controller():
     # Test for the magnetic_bearing_controller method.
     from ross.rotor_assembly import rotor_amb_example
 
+    rot_speed = 1200
+    dt = 0.001
+    t = np.arange(0.0, 500 * dt, dt)
+    unbalance_node = 27
+    probe_node = 12
+
     rotor = rotor_amb_example()
+    n = len(t)
+    F = np.zeros((n, rotor.ndof))
+    m_u = 0.010  # kg
+    ex = 0.002  # m
+    F0 = m_u * ex * rot_speed**2
+    F[:, rotor.number_dof * unbalance_node + 0] = F0 * np.sin(rot_speed * t)
+    F[:, rotor.number_dof * unbalance_node + 1] = F0 * np.cos(rot_speed * t)
 
-    speed = 1200
-    t = np.linspace(0, 10, 40001)
-    node = [27, 29]
-    mass = [10, 10]
-    probes = [12, 43]
+    response = rotor.run_time_response(rot_speed, F, t, method="newmark")
 
-    F = np.zeros((len(t), rotor.ndof))
-    for n, m in zip(node, mass):
-        F[:, 4 * n + 0] = m * np.cos((speed * t))
-        F[:, 4 * n + 1] = (m - 5) * np.sin((speed * t))
+    response_x = response.yout[:, rotor.number_dof * probe_node + 0]
+    response_y = response.yout[:, rotor.number_dof * probe_node + 1]
 
-    response = rotor.run_time_response(speed, F, t, method="newmark")
+    mse_x = 1 / n * np.sum(response_x**2)
+    mse_y = 1 / n * np.sum(response_y**2)
 
-    mean_response = []
-    for ii in probes:
-        for jj in range(2):
-            mean_response.append(np.mean(response.yout[:, 4 * ii + jj]))
-    mean_max = np.max(np.array(mean_response))
+    assert_allclose(mse_x, np.array(9.228097168398774e-10), rtol=1e-6, atol=1e-6)
+    assert_allclose(mse_y, np.array(2.2135792430227363e-10), rtol=1e-6, atol=1e-6)
 
-    assert_allclose(np.array(mean_max), np.array(7.31786978e-07), rtol=1e-6, atol=1e-6)
+
+def test_amb_generic_controller():
+    from ross.rotor_assembly import rotor_amb_example
+
+    kp = 100.0
+    ki = 0
+    kd = 10.0
+    n_f = 10_000
+
+    s = MagneticBearingElement.s
+    pid_controller = kp + ki / s + kd * s * (1 / (1 + (1 / n_f) * s))
+
+    k_lead = 1
+    T_lead = 0.5
+    alpha_lead = 0.1
+    lead_controller = k_lead * (T_lead * s + 1) / (alpha_lead * T_lead * s + 1)
+
+    controller_transfer_function = pid_controller * lead_controller
+
+    rot_speed = 1200
+    dt = 0.001
+    t = np.arange(0.0, 500 * dt, dt)
+    unbalance_node = 27
+    probe_node = 12
+
+    rotor = rotor_amb_example(controller_transfer_function)
+    n = len(t)
+    F = np.zeros((n, rotor.ndof))
+    m_u = 0.010  # kg
+    ex = 0.002  # m
+    F0 = m_u * ex * rot_speed**2
+    F[:, rotor.number_dof * unbalance_node + 0] = F0 * np.sin(rot_speed * t)
+    F[:, rotor.number_dof * unbalance_node + 1] = F0 * np.cos(rot_speed * t)
+
+    response = rotor.run_time_response(rot_speed, F, t, method="newmark")
+
+    response_x = response.yout[:, rotor.number_dof * probe_node + 0]
+    response_y = response.yout[:, rotor.number_dof * probe_node + 1]
+
+    mse_x = 1 / n * np.sum(response_x**2)
+    mse_y = 1 / n * np.sum(response_y**2)
+
+    assert_allclose(mse_x, np.array(7.934767106972457e-11), rtol=1e-6, atol=1e-6)
+    assert_allclose(mse_y, np.array(3.6781959914042914e-11), rtol=1e-6, atol=1e-6)
 
 
 def test_run_amb_sensitivity():
@@ -2685,24 +2679,24 @@ def test_run_amb_sensitivity():
     """
     EXPECTED_SENSITIVITY_RESULTS = {
         "max_abs": {
-            "Magnetic Bearing 0": {"x": 0.9923569675, "y": 0.9923569675},
-            "Magnetic Bearing 1": {"x": 0.9887683386, "y": 0.9887683386},
+            "Magnetic Bearing 0": {"x": 0.9915881235, "y": 0.9915881235},
+            "Magnetic Bearing 1": {"x": 0.9880851953, "y": 0.9880851953},
         },
         "abs_slice": {
             "Magnetic Bearing 0": {
                 "x": np.array(
-                    [0.99235697, 0.99233957, 0.99230551, 0.99225879, 0.99220789]
+                    [0.99158812, 0.99156866, 0.99153061, 0.99147841, 0.99142154]
                 ),
                 "y": np.array(
-                    [0.99235697, 0.99233957, 0.99230551, 0.99225879, 0.99220789]
+                    [0.99158812, 0.99156866, 0.99153061, 0.99147841, 0.99142154]
                 ),
             },
             "Magnetic Bearing 1": {
                 "x": np.array(
-                    [0.98876834, 0.9887427, 0.98869053, 0.9886187, 0.98854049]
+                    [0.9880852, 0.98805746, 0.98800146, 0.98792434, 0.98784035]
                 ),
                 "y": np.array(
-                    [0.98876834, 0.9887427, 0.98869053, 0.9886187, 0.98854049]
+                    [0.9880852, 0.98805746, 0.98800146, 0.98792434, 0.98784035]
                 ),
             },
         },
@@ -2711,25 +2705,41 @@ def test_run_amb_sensitivity():
                 "x": np.array(
                     [
                         0.00000000e00,
-                        7.85012531e-05,
-                        1.42240165e-04,
-                        1.89476176e-04,
-                        2.18884978e-04,
+                        8.77852477e-05,
+                        1.59040274e-04,
+                        2.11855244e-04,
+                        2.44736262e-04,
                     ]
                 ),
                 "y": np.array(
                     [
                         0.00000000e00,
-                        7.85012531e-05,
-                        1.42240165e-04,
-                        1.89476176e-04,
-                        2.18884978e-04,
+                        8.77852477e-05,
+                        1.59040274e-04,
+                        2.11855244e-04,
+                        2.44736262e-04,
                     ]
                 ),
             },
             "Magnetic Bearing 1": {
-                "x": np.array([0.0, 0.00012036, 0.00021924, 0.00029226, 0.00033777]),
-                "y": np.array([0.0, 0.00012036, 0.00021924, 0.00029226, 0.00033777]),
+                "x": np.array(
+                    [
+                        0.00000000e00,
+                        1.29420004e-04,
+                        2.35610181e-04,
+                        3.14075980e-04,
+                        3.62979207e-04,
+                    ]
+                ),
+                "y": np.array(
+                    [
+                        0.00000000e00,
+                        1.29420004e-04,
+                        2.35610181e-04,
+                        3.14075980e-04,
+                        3.62979207e-04,
+                    ]
+                ),
             },
         },
         "dofs": {
@@ -2751,18 +2761,18 @@ def test_run_amb_sensitivity():
                 [
                     0.00000000e00,
                     6.67703996e-12,
-                    1.42056160e-11,
-                    2.26909785e-11,
-                    3.22543193e-11,
+                    1.42060807e-11,
+                    2.26922938e-11,
+                    3.22559336e-11,
                 ]
             ),
             "sensor": np.array(
                 [
                     0.00000000e00,
                     0.00000000e00,
-                    -2.68539903e-15,
-                    -1.20899721e-14,
-                    -3.02872183e-14,
+                    -2.22067882e-15,
+                    -1.07746729e-14,
+                    -2.86728919e-14,
                 ]
             ),
         },
@@ -2781,7 +2791,6 @@ def test_run_amb_sensitivity():
         disturbance_amplitude=10e-6,
         disturbance_min_frequency=0.001,
         disturbance_max_frequency=150,
-        sensors_theta=45,
     )
 
     # Scenario 1: Default run verification
@@ -2889,15 +2898,4 @@ def test_run_amb_sensitivity():
     assert not np.allclose(
         results.max_abs_sensitivities["Magnetic Bearing 0"]["x"],
         results_custom_freq.max_abs_sensitivities["Magnetic Bearing 0"]["x"],
-    )
-
-    # Scenario 4: Test with custom `sensors_theta`
-    # --------------------------------------------
-    results_theta0 = rotor.run_amb_sensitivity(
-        speed=1200, t_max=1e-2, dt=1e-4, sensors_theta=0
-    )
-    # Check if results differ from the default 45-degree case
-    assert not np.allclose(
-        results.max_abs_sensitivities["Magnetic Bearing 0"]["x"],
-        results_theta0.max_abs_sensitivities["Magnetic Bearing 0"]["x"],
     )
