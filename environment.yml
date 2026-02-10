@@ -4,6 +4,9 @@ name: rs
 # To update the environment, run:
 #   mamba env update -f environment.yml
 
+channels:
+  - conda-forge
+
 dependencies:
   # Core language
   - python=3.12
