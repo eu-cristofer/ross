@@ -1,0 +1,59 @@
+classDiagram
+    class Element {
+        <<Abstract>>
+        +n: int
+        +M() matrix
+        +K() matrix
+        +C() matrix
+        +G() matrix
+        +dof_mapping()
+    }
+
+    class Material {
+        +name: str
+        +rho: float
+        +E: float
+        +G_s: float
+        +color: str
+    }
+
+    class ShaftElement {
+        +L: float
+        +idl: float
+        +odl: float
+        +material: Material
+        +M()
+        +K()
+    }
+
+    class DiskElement {
+        +m: float
+        +Id: float
+        +Ip: float
+        +M()
+    }
+
+    class BearingElement {
+        +kxx: float
+        +cxx: float
+        +frequency: array
+        +K(w)
+        +C(w)
+    }
+
+    class Rotor {
+        +shaft_elements: List
+        +disk_elements: List
+        +bearing_elements: List
+        +nodes: List
+        +run_modal()
+        +plot_rotor()
+        +run_campbell()
+    }
+
+    Element <|-- ShaftElement
+    Element <|-- DiskElement
+    Element <|-- BearingElement
+    
+    Rotor o-- Element : aggregates
+    ShaftElement --> Material : uses

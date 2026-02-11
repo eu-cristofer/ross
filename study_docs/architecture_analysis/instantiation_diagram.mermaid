@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant User as User Script
+    participant Mat as Material
+    participant Shaft as ShaftElement
+    participant Rotor as Rotor Object
+
+    Note over User: 1. Define Material
+    User->>Mat: steel = Material(rho=7810, E=211e9...)
+    activate Mat
+    Mat-->>User: Returns steel object
+    deactivate Mat
+
+    Note over User: 2. Create Elements Loop
+    loop For N elements
+        User->>Shaft: ShaftElement(L=0.05, material=steel...)
+        activate Shaft
+        Shaft->>Mat: Reads properties
+        Shaft-->>User: Returns element instance
+        deactivate Shaft
+    end
+
+    Note over User: 3. Assemble Rotor
+    User->>Rotor: rotor = Rotor(shaft_elements=[...])
+    activate Rotor
+    Rotor->>Rotor: Sort elements by node (n)
+    Rotor->>Rotor: Map Degrees of Freedom (DoF)
+    Rotor-->>User: Returns Ready-to-Run Rotor
+    deactivate Rotor

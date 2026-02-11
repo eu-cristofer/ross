@@ -1,0 +1,39 @@
+graph LR
+    Engineer[("Rotordynamics Engineer")]
+
+    subgraph "ROSS Library System"
+        direction TB
+        UC_Def("Define Model")
+        UC_Mat("Define Materials")
+        UC_Elem("Create Elements\n(Shaft, Disk, Bearing)")
+        UC_Assy("Assemble Rotor")
+        
+        UC_Analyze("Analyze System")
+        UC_Modal("Modal Analysis\n(Natural Freqs)")
+        UC_Campbell("Campbell Diagram\n(Critical Speeds)")
+        UC_Forced("Forced Response\n(Unbalance)")
+        
+        UC_Vis("Visualize")
+        UC_PlotRotor("Plot 3D Rotor")
+        UC_PlotCurves("Plot Curves\n(Mode Shapes, Response)")
+        
+        UC_Persist("Persistence")
+        UC_Save("Save/Load .toml")
+    end
+    
+    Engineer --> UC_Def
+    UC_Def -.-> UC_Mat
+    UC_Def -.-> UC_Elem
+    UC_Def -.-> UC_Assy
+    
+    Engineer --> UC_Analyze
+    UC_Analyze --> UC_Modal
+    UC_Analyze --> UC_Campbell
+    UC_Analyze --> UC_Forced
+    
+    Engineer --> UC_Vis
+    UC_Vis --> UC_PlotRotor
+    UC_Vis --> UC_PlotCurves
+    
+    Engineer --> UC_Persist
+    UC_Persist --> UC_Save
