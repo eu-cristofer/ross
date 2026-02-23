@@ -48,7 +48,7 @@ and an other Laval/Jeffcott-like rotor model:
   - cxx = cyy = 500 N.s/m
 - **Unbalance:** 1e-4 kg.m at the disc node (phase = 0)
 
-After building, print a summary of the rotor (number of nodes, natural frequencies at 0 RPM) and plot the rotor geometry using `rotor.plot_rotor()`.
+After building, print a summary of the rotor tipical dynamics analysis.
 
 ### Step 2: Define the Simulation Cases
 
