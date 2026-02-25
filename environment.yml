@@ -13,7 +13,7 @@ dependencies:
   - python=3.12
 
   # Base scientific stack
-  - numpy<=2.3
+  - numpy
   - pandas
   - scipy
   - pint
