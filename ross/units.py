@@ -1,6 +1,8 @@
 """This module deals with units conversion in the ROSS library."""
 
 import inspect
+import json
+import time
 import warnings
 from functools import wraps
 from pathlib import Path
@@ -16,12 +18,43 @@ if isinstance(ureg.get(), pint.registry.LazyRegistry):
     pint.set_application_registry(ureg)
 
 Q_ = ureg.Quantity
+_DEBUG_LOG_PATH = Path("/home/cristofer/GitHub/ross/.cursor/debug-75e502.log")
+_DEBUG_SESSION_ID = "75e502"
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     pint.Quantity([])
 
 __all__ = ["Q_", "check_units"]
+
+
+def _debug_log(hypothesis_id, location, message, data):
+    payload = {
+        "sessionId": _DEBUG_SESSION_ID,
+        "runId": "pre-fix",
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    try:
+        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, default=str) + "\n")
+    except Exception:
+        pass
+
+
+def _convert_sequence_with_units(value, unit_name):
+    if not isinstance(value, (list, tuple)):
+        return None
+    converted = []
+    for item in value:
+        try:
+            converted.append(item.to(unit_name).m)
+        except AttributeError:
+            converted.append(Q_(item, unit_name).m)
+    return converted if isinstance(value, list) else tuple(converted)
 
 units = {
     "E": "N/m**2",
@@ -131,6 +164,19 @@ def check_units(func):
     def inner(*args, **kwargs):
         base_unit_args = []
         args_names = inspect.getfullargspec(func)[0]
+        if func.__name__ == "run_crack":
+            # region agent log
+            _debug_log(
+                "H1",
+                "ross/units.py:inner-entry",
+                "run_crack entered check_units",
+                {
+                    "arg_names": args_names,
+                    "kwargs_keys": list(kwargs.keys()),
+                    "kwargs_types": {k: type(v).__name__ for k, v in kwargs.items()},
+                },
+            )
+            # endregion
 
         for arg_name, arg_value in zip(args_names, args):
             names = arg_name.split("_")
@@ -160,6 +206,43 @@ def check_units(func):
                         except TypeError:
                             # Handle erros that we get with bool for example
                             base_unit_args.append(arg_value)
+                        except ValueError:
+                            seq_value = _convert_sequence_with_units(
+                                arg_value, units[name]
+                            )
+                            if seq_value is not None:
+                                # region agent log
+                                _debug_log(
+                                    "H5",
+                                    "ross/units.py:arg-sequence-convert",
+                                    "converted positional sequence element-wise after Q_ ValueError",
+                                    {
+                                        "arg_name": arg_name,
+                                        "unit_name": name,
+                                        "value_type": type(arg_value).__name__,
+                                        "value_len": len(arg_value),
+                                    },
+                                )
+                                # endregion
+                                base_unit_args.append(seq_value)
+                            else:
+                                raise
+                        except Exception as exc:
+                            # region agent log
+                            _debug_log(
+                                "H4",
+                                "ross/units.py:arg-q-convert",
+                                "unexpected exception converting positional arg with Q_",
+                                {
+                                    "arg_name": arg_name,
+                                    "unit_name": name,
+                                    "value_type": type(arg_value).__name__,
+                                    "exception_type": type(exc).__name__,
+                                    "exception": str(exc),
+                                },
+                            )
+                            # endregion
+                            raise
                     break
             else:
                 base_unit_args.append(arg_value)
@@ -182,18 +265,135 @@ def check_units(func):
                 names.insert(0, k)
             for name in names:
                 if name in units and v is not None:
+                    if func.__name__ == "run_crack" and k in {
+                        "node",
+                        "unbalance_magnitude",
+                        "unbalance_phase",
+                        "speed",
+                        "t",
+                    }:
+                        preview = repr(v)
+                        # region agent log
+                        _debug_log(
+                            "H2",
+                            "ross/units.py:kwargs-before-convert",
+                            "pre-conversion state for run_crack kwarg",
+                            {
+                                "kwarg": k,
+                                "unit_name": name,
+                                "value_type": type(v).__name__,
+                                "value_len": len(v) if hasattr(v, "__len__") else None,
+                                "first_item_type": (
+                                    type(v[0]).__name__
+                                    if isinstance(v, (list, tuple)) and len(v) > 0
+                                    else None
+                                ),
+                                "preview": preview[:200],
+                            },
+                        )
+                        # endregion
                     try:
                         base_unit_kwargs[k] = v.to(units[name]).m
                     except AttributeError:
+                        if func.__name__ == "run_crack":
+                            # region agent log
+                            _debug_log(
+                                "H3",
+                                "ross/units.py:kwargs-attrerror",
+                                "kwarg has no .to(); falling back to Q_ conversion",
+                                {
+                                    "kwarg": k,
+                                    "unit_name": name,
+                                    "value_type": type(v).__name__,
+                                },
+                            )
+                            # endregion
                         try:
                             base_unit_kwargs[k] = Q_(v, units[name]).m
                         except TypeError:
                             # Handle errors that we get with bool for example
                             base_unit_kwargs[k] = v
+                        except ValueError:
+                            seq_value = _convert_sequence_with_units(v, units[name])
+                            if seq_value is not None:
+                                # region agent log
+                                _debug_log(
+                                    "H5",
+                                    "ross/units.py:kwargs-sequence-convert",
+                                    "converted kwarg sequence element-wise after Q_ ValueError",
+                                    {
+                                        "kwarg": k,
+                                        "unit_name": name,
+                                        "value_type": type(v).__name__,
+                                        "value_len": len(v),
+                                    },
+                                )
+                                # endregion
+                                base_unit_kwargs[k] = seq_value
+                            else:
+                                raise
+                        except Exception as exc:
+                            # region agent log
+                            _debug_log(
+                                "H4",
+                                "ross/units.py:kwargs-q-convert",
+                                "unexpected exception converting kwarg with Q_",
+                                {
+                                    "kwarg": k,
+                                    "unit_name": name,
+                                    "value_type": type(v).__name__,
+                                    "exception_type": type(exc).__name__,
+                                    "exception": str(exc),
+                                },
+                            )
+                            # endregion
+                            raise
                     break
             else:
                 base_unit_kwargs[k] = v
 
-        return func(*base_unit_args, **base_unit_kwargs)
+        if func.__name__ == "run_crack":
+            # region agent log
+            _debug_log(
+                "H6",
+                "ross/units.py:before-func-call",
+                "about to call run_crack with converted kwargs",
+                {
+                    "converted_types": {
+                        k: type(v).__name__ for k, v in base_unit_kwargs.items()
+                    },
+                    "converted_lengths": {
+                        k: len(v) if hasattr(v, "__len__") else None
+                        for k, v in base_unit_kwargs.items()
+                    },
+                },
+            )
+            # endregion
+        try:
+            result = func(*base_unit_args, **base_unit_kwargs)
+            if func.__name__ == "run_crack":
+                # region agent log
+                _debug_log(
+                    "H6",
+                    "ross/units.py:after-func-call",
+                    "run_crack returned successfully",
+                    {"result_type": type(result).__name__},
+                )
+                # endregion
+            return result
+        except Exception as exc:
+            if func.__name__ == "run_crack":
+                # region agent log
+                _debug_log(
+                    "H7",
+                    "ross/units.py:func-exception",
+                    "run_crack raised exception after unit conversion",
+                    {
+                        "exception_type": type(exc).__name__,
+                        "exception": str(exc),
+                    },
+                )
+                # endregion
+            raise
 
     return inner
