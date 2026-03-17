@@ -1,0 +1,64 @@
+sequenceDiagram
+    participant NB as Notebook
+    participant RL as Rotor.load()
+    participant TOML as sinha_rotor.toml
+    participant R as Rotor
+    participant CR as Crack
+    participant MF as MisalignmentFlex
+    participant TR as TimeResponseResults
+    participant PR as Probe
+
+    Note over NB: === Setup Phase ===
+    NB->>RL: Rotor.load("sinha_rotor.toml")
+    RL->>TOML: Read TOML data
+    TOML-->>RL: shaft, disk, bearing element data
+    RL->>RL: Reconstruct ShaftElement, DiskElement, BearingElement
+    RL->>R: Rotor(shaft_elements, disk_elements, bearing_elements)
+    R-->>NB: rotor instance
+
+    Note over NB: === Healthy Baseline ===
+    NB->>NB: Build F_healthy force matrix (ndof columns)
+    NB->>NB: Compute DOF indices: dof_x, dof_y
+    NB->>NB: Fill cos/sin unbalance forces
+    NB->>R: run_time_response(speed, F_healthy, t)
+    R->>R: time_response() — Newmark integration
+    R->>TR: TimeResponseResults(rotor, t, yout, xout)
+    TR-->>NB: healthy results
+
+    NB->>PR: Probe(node=probe_node, angle=0.0)
+    PR-->>NB: probe instance
+    NB->>TR: plot_1d(probe) / plot_dfft(probe)
+    TR-->>NB: Plotly Figures
+
+    Note over NB: === Crack Simulation ===
+    NB->>R: run_crack(n, depth_ratio=0.43, crack_model="Mayes", ...)
+    R->>CR: Crack(rotor, n, depth_ratio, "Mayes")
+    CR->>CR: Compute Ko (intact stiffness)
+    CR->>CR: Compute Kc (open-crack stiffness)
+    CR->>CR: run(node, unb_mag, unb_phase, speed, t)
+    CR->>CR: Build breathing function f(theta)
+    CR->>R: run_time_response(speed, F, t, add_to_RHS=callback)
+    R->>R: Newmark integration with parametric stiffness
+    R->>TR: TimeResponseResults(rotor, t, yout, xout)
+    TR-->>NB: crack results
+
+    NB->>TR: plot_1d(probe) / plot_dfft(probe)
+    TR-->>NB: Plotly Figures (shows 2X, 3X harmonics)
+
+    Note over NB: === Misalignment Simulation ===
+    NB->>R: run_misalignment(coupling="flex", n, mis_type="parallel", ...)
+    R->>MF: MisalignmentFlex(rotor, n, "parallel", delta_x, delta_y, ...)
+    MF->>MF: Compute coupling reaction forces
+    MF->>MF: run(node, unb_mag, unb_phase, speed, t)
+    MF->>R: run_time_response(speed, F_total, t)
+    R->>R: Newmark integration
+    R->>TR: TimeResponseResults(rotor, t, yout, xout)
+    TR-->>NB: misalignment results
+
+    NB->>TR: plot_1d(probe) / plot_dfft(probe)
+    TR-->>NB: Plotly Figures (shows 1X, 2X harmonics)
+
+    Note over NB: === Comparison ===
+    NB->>TR: Overlay all three spectra via plot_dfft(fig=fig_overlay)
+    NB->>NB: annotate_harmonics(fig, speed, n_max=4)
+    TR-->>NB: Combined comparison figure

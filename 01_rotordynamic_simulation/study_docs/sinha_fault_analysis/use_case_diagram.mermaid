@@ -1,0 +1,42 @@
+flowchart LR
+    subgraph Actors
+        ENG((Engineer /<br>Analyst))
+    end
+
+    subgraph System["Fault Analysis System (ROSS)"]
+        UC1[Load Rotor Model<br>from TOML]
+        UC2[Define Simulation<br>Parameters]
+        UC3[Run Healthy Baseline<br>Simulation]
+        UC4[Run Crack Fault<br>Simulation]
+        UC5[Run Misalignment<br>Fault Simulation]
+        UC6[Plot Time-Domain<br>Response]
+        UC7[Plot Frequency<br>Spectrum - DFFT]
+        UC8[Annotate Harmonic<br>Markers 1X..4X]
+        UC9[Overlay and Compare<br>Spectral Signatures]
+        UC10[Diagnose Fault Type<br>from Harmonics]
+    end
+
+    ENG --> UC1
+    ENG --> UC2
+    ENG --> UC3
+    ENG --> UC4
+    ENG --> UC5
+    ENG --> UC9
+    ENG --> UC10
+
+    UC1 -.->|precedes| UC2
+    UC2 -.->|precedes| UC3
+    UC2 -.->|precedes| UC4
+    UC2 -.->|precedes| UC5
+
+    UC3 -->|includes| UC6
+    UC3 -->|includes| UC7
+    UC4 -->|includes| UC6
+    UC4 -->|includes| UC7
+    UC5 -->|includes| UC6
+    UC5 -->|includes| UC7
+
+    UC7 -->|extends| UC8
+    UC7 -->|extends| UC9
+
+    UC9 -.->|supports| UC10

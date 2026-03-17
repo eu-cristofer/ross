@@ -1,0 +1,35 @@
+flowchart TD
+    A[Start: Import Libraries] --> B[Load Rotor from TOML]
+    B --> C[Define Simulation Constants]
+    C --> D{Select Analysis Case}
+
+    D -->|Healthy| E1[Build Unbalance Force Matrix]
+    D -->|Crack| E2[Configure Crack Parameters]
+    D -->|Misalignment| E3[Configure Misalignment Parameters]
+
+    E1 --> F1[Compute DOF Indices<br>dof_x = number_dof * node<br>dof_y = number_dof * node + 1]
+    F1 --> G1[Populate F_healthy with<br>cos/sin Unbalance Forces]
+    G1 --> H1[rotor.run_time_response<br>speed, F, t]
+
+    E2 --> F2[rotor.run_crack<br>depth_ratio, crack_model=Mayes]
+    F2 --> F2a[Crack.__init__<br>Compute Ko and Kc matrices]
+    F2a --> F2b[Crack.run<br>Breathing stiffness + unbalance]
+    F2b --> F2c[rotor.run_time_response<br>with add_to_RHS callback]
+
+    E3 --> F3[rotor.run_misalignment<br>coupling=flex, mis_type=parallel]
+    F3 --> F3a[MisalignmentFlex.__init__<br>Compute coupling forces]
+    F3a --> F3b[MisalignmentFlex.run<br>Reaction forces + unbalance]
+    F3b --> F3c[rotor.run_time_response<br>with force matrix]
+
+    H1 --> R[TimeResponseResults]
+    F2c --> R
+    F3c --> R
+
+    R --> P1[plot_1d: Time Domain]
+    R --> P2[plot_dfft: Frequency Spectrum]
+    P2 --> AN[annotate_harmonics<br>Mark 1X, 2X, 3X, 4X]
+
+    P1 --> CMP[Overlay Spectra Comparison]
+    P2 --> CMP
+    AN --> CMP
+    CMP --> DIAG[Fault Diagnosis:<br>Identify Harmonic Signatures]

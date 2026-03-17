@@ -1,0 +1,149 @@
+classDiagram
+    direction TB
+
+    class Element {
+        <<abstract>>
+        +int n
+        +str tag
+        +M()* ndarray
+        +K(frequency)* ndarray
+        +C(frequency)* ndarray
+        +G()* ndarray
+        +dof_mapping()* dict
+        +save(file)
+        +load(file)$ Element
+    }
+
+    class ShaftElement {
+        +float L
+        +float idl
+        +float odl
+        +Material material
+        +bool shear_effects
+        +bool rotary_inertia
+        +M() ndarray
+        +K(frequency) ndarray
+        +C(frequency) ndarray
+        +G() ndarray
+        +from_geometry()$ ShaftElement
+    }
+
+    class DiskElement {
+        +float m
+        +float Id
+        +float Ip
+        +M() ndarray
+        +K(frequency) ndarray
+        +G() ndarray
+        +from_geometry()$ DiskElement
+    }
+
+    class BearingElement {
+        +kxx
+        +cxx
+        +kyy
+        +cyy
+        +M() ndarray
+        +K(frequency) ndarray
+        +C(frequency) ndarray
+    }
+
+    class Rotor {
+        +list shaft_elements
+        +list disk_elements
+        +list bearing_elements
+        +int ndof
+        +int number_dof
+        +M() ndarray
+        +K(frequency) ndarray
+        +C(frequency) ndarray
+        +G() ndarray
+        +run_time_response(speed, F, t) TimeResponseResults
+        +run_crack(n, depth_ratio, ...) TimeResponseResults
+        +run_misalignment(coupling, n, ...) TimeResponseResults
+        +run_modal(speed) ModalResults
+        +run_campbell(speed_range) CampbellResults
+        +save(file)
+        +load(file)$ Rotor
+    }
+
+    class Crack {
+        +Rotor rotor
+        +ShaftElement shaft_elem
+        +ndarray Ko
+        +ndarray Kc
+        +float depth_ratio
+        +str crack_model
+        +run(node, unb_mag, unb_phase, speed, t) TimeResponseResults
+        -_get_force_in_time()
+        +mayes()
+        +gasch()
+    }
+
+    class MisalignmentFlex {
+        +Rotor rotor
+        +int n
+        +str mis_type
+        +float mis_distance_x
+        +float mis_distance_y
+        +float radial_stiffness
+        +float bending_stiffness
+        +run(node, unb_mag, unb_phase, speed, t) TimeResponseResults
+        +compute_reaction_force(ang_pos)
+    }
+
+    class MisalignmentRigid {
+        +Rotor rotor
+        +int n
+        +float mis_distance
+        +run(node, unb_mag, unb_phase, speed, t) TimeResponseResults
+        +compute_reaction_force(y, ap)
+    }
+
+    class Results {
+        <<abstract>>
+    }
+
+    class TimeResponseResults {
+        +Rotor rotor
+        +ndarray t
+        +ndarray yout
+        +ndarray xout
+        +plot_1d(probe) Figure
+        +plot_2d(node) Figure
+        +plot_3d() Figure
+        +plot_dfft(probe, frequency_range) Figure
+        +data_time_response(probe) DataFrame
+    }
+
+    class Probe {
+        +int node
+        +float angle
+        +str direction
+        +str tag
+        +get_label(id) str
+    }
+
+    Element <|-- ShaftElement
+    Element <|-- DiskElement
+    Element <|-- BearingElement
+    Results <|-- TimeResponseResults
+
+    Rotor *-- ShaftElement : contains
+    Rotor *-- DiskElement : contains
+    Rotor *-- BearingElement : contains
+
+    Rotor ..> Crack : creates via run_crack
+    Rotor ..> MisalignmentFlex : creates via run_misalignment
+    Rotor ..> MisalignmentRigid : creates via run_misalignment
+
+    Crack --> Rotor : references
+    MisalignmentFlex --> Rotor : references
+    MisalignmentRigid --> Rotor : references
+
+    Crack ..> TimeResponseResults : returns
+    MisalignmentFlex ..> TimeResponseResults : returns
+    MisalignmentRigid ..> TimeResponseResults : returns
+    Rotor ..> TimeResponseResults : returns
+
+    TimeResponseResults ..> Probe : uses for plotting

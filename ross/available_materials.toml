@@ -11,11 +11,11 @@ color = "#525252"
 [Materials.AISI4140]
 name = "AISI4140"
 rho = 7850.0
-E = 203200000000.0
+E = 205000000000.0
 G_s = 80000000000.0
-Poisson = 0.27
-specific_heat = 473.0
-thermal_conductivity = 42.6
+Poisson = 0.28125
+specific_heat = 0.0
+thermal_conductivity = 0.0
 color = "#525252"
 
 [Materials.A216WCB]
@@ -37,3 +37,13 @@ Poisson = 0.34
 specific_heat = 380.0
 thermal_conductivity = 109.0
 color = "#525252"
+
+[Materials.AISI4140_dummy]
+name = "AISI4140_dummy"
+rho = 7850.0
+E = 1.0
+G_s = 1.0
+Poisson = -0.5
+specific_heat = 0.0
+thermal_conductivity = 0.0
+color = "#ADD8E6"
