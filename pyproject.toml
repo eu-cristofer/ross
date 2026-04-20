@@ -83,6 +83,7 @@ version = {attr = "ross.__version__"}
         "sphinxcontrib-bibtex>=2.2",
         "ruff",
         "sphinx-design",
+        "h5py",
     ]
 
 [project.urls]
