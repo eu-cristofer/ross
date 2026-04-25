@@ -28,9 +28,12 @@ Provenance (symbol → origin → conclusion for Methods)
 - ``CRACK_RATIO`` — Default ``depth_ratio`` (0.5) for Mayes/Gasch cap; aligned
   with ``04`` narrative and ``03`` sweeps (other depths remain notebook-local).
 
-- ``DT``, ``T``, ``FREQ_RANGE`` — Default integration and plot band shared by
-  time-domain notebooks. Conclusion: ``fs_sim = 1/DT`` is the simulation sample
-  rate unless subsampling is applied in post-processing (see technical note).
+- ``DT``, ``T_SHORT``, ``T_LONG``, ``FREQ_RANGE`` — Default integration and plot
+  band shared by time-domain notebooks. Current convention: ``DT = 1/SINHA_FS_HZ``
+  so the FEM integrates at Sinha's acquisition rate (no resampling required in
+  post-processing). ``T_SHORT`` (2 s) covers orbits and phase sweeps — the
+  default for every current notebook. ``T_LONG`` (25 s) is reserved for HOS
+  estimation cases introduced from Sprint 02 onward.
 
 - ``SINHA_*`` — Acquisition and HOS metadata from Sinha (2007) §3 / §3.3 as cited
   in the sprint doc; for Sprint 02+ bispectrum code to import. Not simulation
@@ -41,7 +44,7 @@ import numpy as np
 from ross import Q_
 
 __all__ = [
-    # Keep this list alphabetically ordered for maintainability.
+    # ASCII-sorted. Keep it that way.
     "BEARING_1_NODE",
     "BEARING_2_NODE",
     "CRACK_NODE",
@@ -53,21 +56,23 @@ __all__ = [
     "MIS_X",
     "MIS_Y",
     "PROBE_NODE",
+    "Q_",
+    "SINHA_AA_CUTOFF_HZ",
+    "SINHA_FS_HZ",
+    "SINHA_HOS_DF_HZ",
+    "SINHA_HOS_N_SEGMENTS",
+    "SINHA_HOS_OVERLAP",
+    "SPEEDS",
     "SPEED_0",
     "SPEED_1",
     "SPEED_CRACK_0",
     "SPEED_CRACK_1",
     "SPEED_MIS_0",
     "SPEED_MIS_1",
-    "SPEEDS",
-    "SINHA_AA_CUTOFF_HZ",
-    "SINHA_FS_HZ",
-    "SINHA_HOS_DF_HZ",
-    "SINHA_HOS_N_SEGMENTS",
-    "SINHA_HOS_OVERLAP",
-    "T",
+    "T_LONG",
+    "T_SHORT",
     "UNB_MAG",
-    "UNB_PHASE"
+    "UNB_PHASE",
 ]
 
 # Crack parameters
@@ -99,17 +104,18 @@ SPEEDS = [SPEED_CRACK_0, SPEED_CRACK_1]
 MIS_X = Q_(1.0e-3, "m")
 MIS_Y = Q_(0.5e-3, "m")
 
-# Time parameters
-DT = 1e-3
-T = np.arange(0.0, 2.0, DT)
-FS_SIM_HZ = 1.0 / DT
-
-# Frequency range parameters for plotting
-FREQ_RANGE = Q_((0, 200), "Hz")
-
 # Sinha (2007) acquisition / HOS estimation handoff (Sprint 02+)
 SINHA_FS_HZ = 2560
 SINHA_AA_CUTOFF_HZ = 1000
 SINHA_HOS_DF_HZ = 1.25
 SINHA_HOS_N_SEGMENTS = 50
 SINHA_HOS_OVERLAP = 0.5
+
+# Time parameters
+DT = 1 / SINHA_FS_HZ  # s (FEM step = Sinha acquisition period)
+FS_SIM_HZ = SINHA_FS_HZ
+T_SHORT = np.arange(0.0, 2.0, DT)   # orbits and phase sweeps (default)
+T_LONG = np.arange(0.0, 25.0, DT)   # HOS estimation (Sprint 02+ only)
+
+# Frequency range parameters for plotting
+FREQ_RANGE = Q_((0, 200), "Hz")
