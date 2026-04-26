@@ -38,6 +38,12 @@ Provenance (symbol → origin → conclusion for Methods)
 - ``SINHA_*`` — Acquisition and HOS metadata from Sinha (2007) §3 / §3.3 as cited
   in the sprint doc; for Sprint 02+ bispectrum code to import. Not simulation
   inputs until the analysis pipeline resamples/filters (see technical note).
+
+- ``SINHA_MODAL_TARGET`` = 27.50 Hz — first bending frequency target for the
+  calibrated Sinha rotor. Matches Sinha (2007) §3 impulse-response result;
+  Sinha's own FE (§5) reports 26.53 Hz and is NOT the calibration target.
+  Fully-open cracked f1 target: 26.25 Hz vertical (Sinha §3); Sinha §5 FE
+  reports 25.75 / 26.10 Hz and is NOT the target.
 """
 
 import numpy as np
@@ -62,6 +68,7 @@ __all__ = [
     "SINHA_HOS_DF_HZ",
     "SINHA_HOS_N_SEGMENTS",
     "SINHA_HOS_OVERLAP",
+    "SINHA_MODAL_TARGET",
     "SPEEDS",
     "SPEED_0",
     "SPEED_1",
@@ -103,6 +110,9 @@ SPEEDS = [SPEED_CRACK_0, SPEED_CRACK_1]
 # Misalignment (parallel flexible coupling), from 04 fault analysis
 MIS_X = Q_(1.0e-3, "m")
 MIS_Y = Q_(0.5e-3, "m")
+
+# Modal calibration target (Sprint 00 decision — see docstring and 00a_modal_check.ipynb)
+SINHA_MODAL_TARGET = 27.50  # Hz, Sinha (2007) §3 impulse-response measurement
 
 # Sinha (2007) acquisition / HOS estimation handoff (Sprint 02+)
 SINHA_FS_HZ = 2560
