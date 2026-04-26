@@ -24,6 +24,9 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 — registers 3d projectio
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# Shared Plotly colorscale for all 3-D HOS charts.
+PLOTLY_3D_COLORSCALE = "Viridis"
+
 
 def plot_bispectrum_surface(B, freqs, fmax_hz=50.0, normalize=True):
     """3-D surface of |B|/max|B| over the non-redundant triangle.
@@ -142,7 +145,7 @@ def _bispectrum_z(B, freqs, fmax_hz, normalize):
 def plotly_bispectrum_surface(B, freqs, fmax_hz=50.0, normalize=True, title=None):
     """Interactive Plotly 3-D surface of |B|/max|B|.
 
-    Hot colormap, non-redundant triangle only.
+    Uses ``PLOTLY_3D_COLORSCALE`` and non-redundant triangle only.
     Mirrors Sinha Figs. 5 / 6.
 
     Returns
@@ -153,7 +156,7 @@ def plotly_bispectrum_surface(B, freqs, fmax_hz=50.0, normalize=True, title=None
     zlabel = "|B| / max|B|" if normalize else "|B|"
     fig = go.Figure(data=go.Surface(
         x=f_sub, y=f_sub, z=Z,
-        colorscale="Hot",
+        colorscale=PLOTLY_3D_COLORSCALE,
         cmin=0.0, cmax=1.0 if normalize else None,
         colorbar=dict(title=zlabel, thickness=15),
     ))
@@ -181,7 +184,7 @@ def plotly_bicoherence_surface(b2, freqs, fmax_hz=50.0, title=None):
     Z = Z.real
     fig = go.Figure(data=go.Surface(
         x=f_sub, y=f_sub, z=Z,
-        colorscale="Hot",
+        colorscale=PLOTLY_3D_COLORSCALE,
         cmin=0.0, cmax=1.0,
         colorbar=dict(title="b²", thickness=15),
     ))
@@ -230,7 +233,7 @@ def plotly_trispectrum_balls(T_dict, freqs, fmax_hz=50.0, amp_min=0.10, title=No
         marker=dict(
             size=[a * 25 + 4 for a in amps],
             color=amps,
-            colorscale="Hot",
+            colorscale=PLOTLY_3D_COLORSCALE,
             cmin=0.0, cmax=1.0,
             opacity=0.85,
             colorbar=dict(title="|T|/max|T|", thickness=15),
