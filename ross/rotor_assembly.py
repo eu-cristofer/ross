@@ -33,6 +33,7 @@ from ross.faults import Crack, MisalignmentFlex, MisalignmentRigid, Rubbing
 from ross.materials import Material, steel
 from ross.model_reduction import ModelReduction
 from ross.point_mass import PointMass
+from ross.probe import Probe
 from ross.results import (
     CampbellResults,
     ConvergenceResults,
@@ -46,6 +47,7 @@ from ross.results import (
     SummaryResults,
     TimeResponseResults,
     UCSResults,
+    ClearanceResults,
 )
 from ross.seals.labyrinth_seal import LabyrinthSeal
 from ross.shaft_element import ShaftElement
@@ -567,6 +569,24 @@ class Rotor(object):
         self.G0 = G0
         self.Ksdt0 = Ksdt0
 
+        # Calculation of overall rotor transverse (diametral) inertia (includes only DOFs located at the shaft element DOF, excludes point masses that are outside the shaft).
+        # This is only calculating Iyy. Assuming Ixx is the same.
+        # First, set up a vector corresponding to rigid body rotation of the entire rotor
+        v = np.zeros([self.ndof])
+        for i, elm in enumerate(self.shaft_elements):
+            dofs = list(elm.dof_global_index.values())
+            y0 = elm.dof_mapping()["y_0"]
+            a0 = elm.dof_mapping()["alpha_0"]
+            y1 = elm.dof_mapping()["y_1"]
+            a1 = elm.dof_mapping()["alpha_1"]
+
+            v[dofs[y0]] = -(nodes_pos_l[i] - self.CG)  # y
+            v[dofs[y1]] = -(nodes_pos_r[i] - self.CG)  # y
+            v[dofs[a0]] = 1  # alpha
+            v[dofs[a1]] = 1  # alpha
+        # Then, use the vector to compute diametral aka transverse inertia of the entire rotor.
+        self.It = v @ (self.M0 @ v.T)
+
     def _set_tag(self, tag):
         """Set the tag for the current rotor."""
         self.tag = tag or "Rotor 0"
@@ -946,11 +966,11 @@ class Rotor(object):
         wd = np.zeros_like(_wd)
 
         for i in range(len(wn)):
-            wn_func = lambda s: (s - self.run_modal(s, num_modes).wn[i])
+            wn_func = lambda s: s - self.run_modal(s, num_modes).wn[i]
             wn[i] = newton(func=wn_func, x0=_wn[i], rtol=rtol)
 
         for i in range(len(wd)):
-            wd_func = lambda s: (s - self.run_modal(s, num_modes).wd[i])
+            wd_func = lambda s: s - self.run_modal(s, num_modes).wd[i]
             wd[i] = newton(func=wd_func, x0=_wd[i], rtol=rtol)
 
         log_dec = np.zeros_like(wn)
@@ -1351,77 +1371,6 @@ class Rotor(object):
                     )
                     break
 
-    def _clustering_points(self, num_modes=12, num_points=10, modes=None, rtol=0.005):
-        """Create an array with points clustered close to the natural frequencies.
-
-        This method generates an automatic array to run frequency response analyses.
-        The frequency points are calculated based on the damped natural frequencies and
-        their respective damping ratios. The greater the damping ratio, the more spread
-        the points are. If the damping ratio, for a given critical speed, is smaller
-        than 0.005, it is redefined to be 0.005 (for this method only).
-
-        Parameters
-        ----------
-        num_modes : int, optional
-            The number of eigenvalues and eigenvectors to be calculated using ARPACK.
-            It also defines the range for the output array, since the method generates
-            points only for the critical speed calculated by run_critical_speed().
-            Default is 12.
-        num_points : int, optional
-            The number of points generated for each critical speed.
-            The method set the same number of points for slightly less and slightly
-            higher than the natural circular frequency. It means there'll be num_points
-            greater and num_points smaller than a given critical speed.
-            num_points may be between 2 and 12. Anything above this range defaults
-            to 10 and anything below this range defaults to 4.
-            The default is 10.
-        modes : list, optional
-            Modes that will be used to calculate the frequency response.
-            The possibilities are limited by the num_modes argument.
-            (all modes will be used if a list is not given).
-        rtol : float, optional
-            Tolerance (relative) for termination. Applied to scipy.optimize.newton in
-            run_critical_speed() method.
-            Default is 0.005 (0.5%).
-
-        Returns
-        -------
-        speed_range : array
-            Range of frequencies (or speed).
-
-        Examples
-        --------
-        >>> rotor = rotor_example()
-        >>> speed_range = rotor._clustering_points(num_modes=12, num_points=5)
-        >>> speed_range.shape
-        (61,)
-        """
-        critical_speeds = self.run_critical_speed(num_modes=num_modes, rtol=rtol)
-        omega = critical_speeds._wd
-        damping = critical_speeds.damping_ratio
-        damping = np.array([d if d >= 0.005 else 0.005 for d in damping])
-
-        if num_points > 12:
-            num_points = 10
-        elif num_points < 2:
-            num_points = 4
-
-        if modes is not None:
-            omega = omega[modes]
-            damping = damping[modes]
-
-        a = np.zeros((len(omega), num_points))
-        for i in range(len(omega)):
-            for j in range(num_points):
-                b = 2 * (num_points - j + 1) / (num_points - 1)
-                a[i, j] = 1 + damping[i] ** b
-
-        omega = omega.reshape((len(omega), 1))
-        speed_range = np.sort(np.ravel(np.concatenate((omega / a, omega * a))))
-        speed_range = np.insert(speed_range, 0, 0)
-
-        return speed_range
-
     @staticmethod
     def _index(eigenvalues):
         """Generate indexes to sort eigenvalues and eigenvectors.
@@ -1452,16 +1401,18 @@ class Rotor(object):
         """
         # avoid float point errors when sorting
         evals_truncated = np.around(eigenvalues, decimals=10)
-        a = np.imag(evals_truncated)  # First column
-        b = np.absolute(evals_truncated)  # Second column
-        ind = np.lexsort((b, a))  # Sort by imag (wd), then by absolute (wn)
-        # Positive eigenvalues first
-        positive = [i for i in ind[len(a) // 2 :]]
-        negative = [i for i in ind[: len(a) // 2]]
 
-        idx = np.array([*positive, *negative])
+        wd = np.imag(evals_truncated)
+        wn = np.absolute(evals_truncated)
 
-        return idx
+        sign = np.zeros_like(wd)
+        sign[wd == 0] = 1
+        sign[wd < 0] = 2
+
+        # Sort by sign, then by imag (wd), then by absolute (wn)
+        ind = np.lexsort((wn, wd, sign))
+
+        return ind
 
     @check_units
     def _eigen(
@@ -1666,10 +1617,6 @@ class Rotor(object):
         self,
         speed_range=None,
         modes=None,
-        cluster_points=False,
-        num_modes=12,
-        num_points=10,
-        rtol=0.005,
         free_free=False,
     ):
         """Frequency response for a mdof system.
@@ -1691,27 +1638,6 @@ class Rotor(object):
         modes : list, optional
             Modes that will be used to calculate the frequency response
             (all modes will be used if a list is not given).
-        cluster_points : bool, optional
-            boolean to activate the automatic frequency spacing method. If True, the
-            method uses _clustering_points() to create an speed_range.
-            Default is False
-        num_points : int, optional
-            The number of points generated per critical speed.
-            The method set the same number of points for slightly less and slightly
-            higher than the natural circular frequency. It means there'll be num_points
-            greater and num_points smaller than a given critical speed.
-            num_points may be between 2 and 12. Anything above this range defaults
-            to 10 and anything below this range defaults to 4.
-            The default is 10.
-        num_modes
-            The number of eigenvalues and eigenvectors to be calculated using ARPACK.
-            It also defines the range for the output array, since the method generates
-            points only for the critical speed calculated by run_critical_speed().
-            Default is 12.
-        rtol : float, optional
-            Tolerance (relative) for termination. Applied to scipy.optimize.newton to
-            calculate the approximated critical speeds.
-            Default is 0.005 (0.5%).
         free_free : bool, optional
             If True, the method will consider the rotor system as free-free.
             Default is False.
@@ -1736,14 +1662,6 @@ class Rotor(object):
         Return the response phase
         >>> np.angle(response.freq_resp) # doctest: +ELLIPSIS
         array([[[...
-
-        Using clustered points option.
-        Set `cluster_points=True` and choose how many modes the method must search and
-        how many points to add just before and after each critical speed.
-
-        >>> response = rotor.run_freq_response(cluster_points=True, num_points=5)
-        >>> response.speed_range.shape
-        (61,)
 
         Selecting the desirable modes, if you want a reduced model:
         >>> response = rotor.run_freq_response(speed_range=speed, modes=[0, 1, 2, 3, 4])
@@ -1773,10 +1691,6 @@ class Rotor(object):
         return self._run_freq_response(
             speed_range=speed_range,
             modes=modes,
-            cluster_points=cluster_points,
-            num_modes=num_modes,
-            num_points=num_points,
-            rtol=rtol,
             free_free=free_free,
         )
 
@@ -1785,10 +1699,6 @@ class Rotor(object):
         self,
         speed_range=None,
         modes=None,
-        cluster_points=False,
-        num_modes=12,
-        num_points=10,
-        rtol=0.005,
         free_free=False,
     ):
         """Frequency response for a mdof system.
@@ -1797,16 +1707,33 @@ class Rotor(object):
         was made to convert `speed_range` and `modes` to a tuple format and to enable
         the use of the `@lru_cache()` method, which requires hashable arguments to cache
         results effectively.
+
+        Parameters
+        ----------
+        speed_range : tuple, optional
+            Tuple with the desired range of frequencies.
+        modes : tuple, optional
+            Modes that will be used to calculate the frequency response.
+        cluster_points : bool, optional
+            If True, creates an speed_range with clustered points.
+        num_modes : int, optional
+            The number of eigenvalues and eigenvectors to be calculated.
+        num_points : int, optional
+            The number of points generated per critical speed.
+        rtol : float, optional
+            Tolerance (relative) for termination.
+        free_free : bool, optional
+            If True, the method will consider the rotor system as free-free.
+
+        Returns
+        -------
+        results : ross.FrequencyResponseResults
+            Frequency response results object.
         """
 
         if speed_range is None:
-            if not cluster_points:
-                modal = self.run_modal(0)
-                speed_range = np.linspace(0, max(modal.evalues.imag) * 1.5, 1000)
-            else:
-                speed_range = self._clustering_points(
-                    num_modes, num_points, modes, rtol
-                )
+            modal = self.run_modal(0)
+            speed_range = np.linspace(0, max(modal.evalues.imag) * 1.5, 1000)
 
         self._check_frequency_array(speed_range)
 
@@ -2032,10 +1959,6 @@ class Rotor(object):
         force=None,
         speed_range=None,
         modes=None,
-        cluster_points=False,
-        num_modes=12,
-        num_points=10,
-        rtol=0.005,
         unbalance=None,
     ):
         """Forced response for a mdof system.
@@ -2068,27 +1991,6 @@ class Rotor(object):
             with deflected shape. This argument is set only if running an unbalance
             response analysis.
             Default is None.
-        cluster_points : bool, optional
-            boolean to activate the automatic frequency spacing method. If True, the
-            method uses _clustering_points() to create an speed_range.
-            Default is False
-        num_points : int, optional
-            The number of points generated per critical speed.
-            The method set the same number of points for slightly less and slightly
-            higher than the natural circular frequency. It means there'll be num_points
-            greater and num_points smaller than a given critical speed.
-            num_points may be between 2 and 12. Anything above this range defaults
-            to 10 and anything below this range defaults to 4.
-            The default is 10.
-        num_modes
-            The number of eigenvalues and eigenvectors to be calculated using ARPACK.
-            It also defines the range for the output array, since the method generates
-            points only for the critical speed calculated by run_critical_speed().
-            Default is 12.
-        rtol : float, optional
-            Tolerance (relative) for termination. Applied to scipy.optimize.newton to
-            calculate the approximated critical speeds.
-            Default is 0.005 (0.5%).
 
         Returns
         -------
@@ -2104,26 +2006,12 @@ class Rotor(object):
         >>> resp = rotor.run_forced_response(force=force, speed_range=speed)
         >>> abs(resp.forced_resp) # doctest: +ELLIPSIS
         array([[0.00000000e+00, 5.06073311e-04, 2.10044826e-03, ...
-
-        Using clustered points option.
-        Set `cluster_points=True` and choose how many modes the method must search and
-        how many points to add just before and after each critical speed.
-
-        >>> response = rotor.run_forced_response(
-        ...     force=force, cluster_points=True, num_modes=12, num_points=5
-        ... )
-        >>> response.speed_range.shape
-        (61,)
         """
         if speed_range is None:
-            if cluster_points:
-                speed_range = self._clustering_points(
-                    num_modes, num_points, modes, rtol
-                )
+            modal = self.run_modal(0)
+            speed_range = np.linspace(0, max(modal.evalues.imag) * 1.5, 1000)
 
-        freq_resp = self.run_freq_response(
-            speed_range, modes, cluster_points, num_modes, num_points, rtol
-        )
+        freq_resp = self.run_freq_response(speed_range, modes)
 
         forced_resp = np.zeros((self.ndof, len(freq_resp.speed_range)), dtype=complex)
         velc_resp = np.zeros((self.ndof, len(freq_resp.speed_range)), dtype=complex)
@@ -2268,10 +2156,6 @@ class Rotor(object):
         unbalance_phase,
         frequency=None,
         modes=None,
-        cluster_points=False,
-        num_modes=12,
-        num_points=10,
-        rtol=0.005,
     ):
         """Unbalanced response for a mdof system.
 
@@ -2299,30 +2183,10 @@ class Rotor(object):
             Unbalance phase (rad).
         frequency : list, pint.Quantity
             List with the desired range of frequencies (rad/s).
+            Default is 0 to 1.5 x highest damped natural frequency.
         modes : list, optional
             Modes that will be used to calculate the frequency response
             (all modes will be used if a list is not given).
-        cluster_points : bool, optional
-            boolean to activate the automatic frequency spacing method. If True, the
-            method uses _clustering_points() to create an speed_range.
-            Default is False
-        num_points : int, optional
-            The number of points generated per critical speed.
-            The method set the same number of points for slightly less and slightly
-            higher than the natural circular frequency. It means there'll be num_points
-            greater and num_points smaller than a given critical speed.
-            num_points may be between 2 and 12. Anything above this range defaults
-            to 10 and anything below this range defaults to 4.
-            The default is 10.
-        num_modes
-            The number of eigenvalues and eigenvectors to be calculated using ARPACK.
-            It also defines the range for the output array, since the method generates
-            points only for the critical speed calculated by run_critical_speed().
-            Default is 12.
-        rtol : float, optional
-            Tolerance (relative) for termination. Applied to scipy.optimize.newton to
-            calculate the approximated critical speeds.
-            Default is 0.005 (0.5%).
 
         Returns
         -------
@@ -2347,16 +2211,6 @@ class Rotor(object):
         Return the response phase
         >>> np.angle(response.forced_resp) # doctest: +ELLIPSIS
         array([[ 0.        ,  0.        ,  0.        , ...
-
-        Using clustered points option.
-        Set `cluster_points=True` and choose how many modes the method must search and
-        how many points to add just before and after each critical speed.
-
-        >>> response2 = rotor.run_unbalance_response(
-        ...     node=3, unbalance_magnitude=0.01, unbalance_phase=0.0, cluster_points=True, num_points=5
-        ... )
-        >>> response2.speed_range.shape
-        (61,)
 
         plot unbalance response:
         >>> probe_node = 3
@@ -2391,8 +2245,8 @@ class Rotor(object):
         >>> fig = response.plot_deflected_shape(speed=value)
         """
         if frequency is None:
-            if cluster_points:
-                frequency = self._clustering_points(num_modes, num_points, modes, rtol)
+            modal = self.run_modal(0)
+            frequency = np.linspace(0, max(modal.evalues.imag) * 1.5, 1000)
 
         force = np.zeros((self.ndof, len(frequency)), dtype=complex)
 
@@ -2407,7 +2261,10 @@ class Rotor(object):
         # fmt: off
         ub = np.vstack((node, unbalance_magnitude, unbalance_phase))
         forced_response = self.run_forced_response(
-            force, frequency, modes, cluster_points, num_modes, num_points, rtol, ub
+            force=force,
+            speed_range=frequency,
+            modes=modes,
+            unbalance=ub,
         )
         # fmt: on
 
@@ -2742,26 +2599,32 @@ class Rotor(object):
         add_to_RHS = kwargs.get("add_to_RHS")
 
         if add_to_RHS is None:
-            forces = lambda step, **curr_state: F[step, :] + reduction[1](
-                magnetic_force(
-                    step,
-                    curr_state.get("dt"),
-                    reduction[2](curr_state.get("y")),
+            forces = lambda step, **curr_state: (
+                F[step, :]
+                + reduction[1](
+                    magnetic_force(
+                        step,
+                        curr_state.get("dt"),
+                        reduction[2](curr_state.get("y")),
+                    )
                 )
             )
         else:
-            forces = lambda step, **curr_state: F[step, :] + reduction[1](
-                add_to_RHS(
-                    step,
-                    time_step=curr_state.get("dt"),
-                    disp_resp=reduction[2](curr_state.get("y")),
-                    velc_resp=reduction[2](curr_state.get("ydot")),
-                    accl_resp=reduction[2](curr_state.get("y2dot")),
-                )
-                + magnetic_force(
-                    step,
-                    curr_state.get("dt"),
-                    reduction[2](curr_state.get("y")),
+            forces = lambda step, **curr_state: (
+                F[step, :]
+                + reduction[1](
+                    add_to_RHS(
+                        step,
+                        time_step=curr_state.get("dt"),
+                        disp_resp=reduction[2](curr_state.get("y")),
+                        velc_resp=reduction[2](curr_state.get("ydot")),
+                        accl_resp=reduction[2](curr_state.get("y2dot")),
+                    )
+                    + magnetic_force(
+                        step,
+                        curr_state.get("dt"),
+                        reduction[2](curr_state.get("y")),
+                    )
                 )
             )
 
@@ -2888,8 +2751,8 @@ class Rotor(object):
         rotor = deepcopy(self)
 
         if len(magnetic_bearings):
-            magnetic_force = (
-                lambda step, time_step, disp_resp: self.magnetic_bearing_controller(
+            magnetic_force = lambda step, time_step, disp_resp: (
+                self.magnetic_bearing_controller(
                     step, magnetic_bearings, time_step, disp_resp, **kwargs
                 )
             )
@@ -3569,7 +3432,7 @@ class Rotor(object):
 
         for i, Q in enumerate(stiffness):
             bearings = [copy(b) for b in self.bearing_elements]
-            cross_coupling = bearings[0].__class__(n=n, kxx=0, cxx=0, kxy=Q, kyx=-Q)
+            cross_coupling = BearingElement(n=n, kxx=0, cxx=0, kxy=Q, kyx=-Q)
             bearings.append(cross_coupling)
 
             rotor = self.__class__(self.shaft_elements, self.disk_elements, bearings)
@@ -4330,19 +4193,21 @@ class Rotor(object):
         aux_brg = []
         aux_brg_1 = []
         for elm in self.bearing_elements:
-            if not isinstance(elm, SealElement):
-                if elm.n not in self.nodes:
-                    pass
-                elif elm.n_link in self.nodes:
-                    aux_brg.append(
-                        elm.__class__(n=elm.n, n_link=elm.n_link, kxx=1e20, cxx=0)
-                    )
-                    aux_brg_1.append(
-                        elm.__class__(n=elm.n, n_link=elm.n_link, kxx=0, cxx=0)
-                    )
-                else:
-                    aux_brg.append(elm.__class__(n=elm.n, kxx=1e20, cxx=0))
-                    aux_brg_1.append(elm.__class__(n=elm.n, kxx=0, cxx=0))
+            # Static analysis uses only bearing supports; seals are skipped
+            # (see SealElement docstring in bearing_seal_element.py).
+            if isinstance(elm, SealElement):
+                continue
+
+            if elm.n not in self.nodes:
+                continue
+
+            n_link = (
+                elm.n_link
+                if (elm.n_link is not None and elm.n_link in self.nodes)
+                else None
+            )
+            aux_brg.append(BearingElement(n=elm.n, n_link=n_link, kxx=1e20, cxx=0))
+            aux_brg_1.append(BearingElement(n=elm.n, n_link=n_link, kxx=0, cxx=0))
 
         aux_rotor = Rotor(self.shaft_elements, self.disk_elements, aux_brg)
         aux_rotor_1 = Rotor(self.shaft_elements, self.disk_elements, aux_brg_1)
@@ -4491,6 +4356,7 @@ class Rotor(object):
             forces,
             self.CG,
             self.Ip,
+            self.It,
             self.tag,
         )
         return results
@@ -4713,7 +4579,21 @@ class Rotor(object):
 
     @classmethod
     def to_ross_only(cls, rotor):
-        """Convert rotor with rsxl objects to ross only."""
+        """Convert a rotor object to a ross-only rotor object.
+
+        This method removes any non-ross elements from the rotor object and returns
+        a new ross.Rotor instance.
+
+        Parameters
+        ----------
+        rotor : ross.Rotor
+            The rotor object to be converted.
+
+        Returns
+        -------
+        ross.Rotor
+            A new ross.Rotor instance with only ross elements.
+        """
         bearings_seals_rs = []
         for b in rotor.bearing_elements:
             if isinstance(b, SealElement):
@@ -4763,6 +4643,164 @@ class Rotor(object):
             max_w=rotor.max_w,
             rated_w=rotor.rated_w,
             tag=rotor.tag,
+        )
+
+    @check_units
+    def run_clearance_analysis(
+        self,
+        speed,
+        node,
+        unbalance_magnitude,
+        unbalance_phase,
+        frequency=None,
+        modes=None,
+    ):
+        """
+        Perform clearance analysis using unbalance response.
+
+        This method evaluates the vibration amplitude at bearing locations
+        and compares it with the available radial clearance. The unbalance
+        excitation is the same as in :meth:`run_unbalance_response` (node,
+        magnitude, phase, frequency range, and optional mode subset).
+
+        The procedure involves:
+            - Unbalance response calculation at the requested frequencies
+            - Extraction of vibration amplitudes at bearings at the speed of
+              interest (see ``speed`` vs. ``frequency`` below)
+            - Comparison with clearance limits (100% and 75%) after API 617
+              amplitude scaling
+
+        Parameters
+        ----------
+        speed : float, pint.Quantity
+            Operating speed used for API 617 limits and for picking the
+            frequency row when ``frequency`` contains more than one value.
+            Must be a scalar (or an array with a single value), in rad/s.
+        node : list, int
+            Node(s) where the unbalance is applied (same as
+            :meth:`run_unbalance_response`).
+        unbalance_magnitude : list, float, pint.Quantity
+            Unbalance magnitude in kg·m (same as :meth:`run_unbalance_response`).
+        unbalance_phase : list, float, pint.Quantity
+            Unbalance phase in rad (same as :meth:`run_unbalance_response`).
+        frequency : list, ndarray, pint.Quantity, optional
+            Frequency points for the unbalance response in rad/s. If omitted,
+            defaults to ``[speed]`` so the response is evaluated at the
+            operating speed only.
+        modes : list, optional
+            Modes passed to :meth:`run_unbalance_response` (and then to
+            :meth:`run_forced_response`). Use this to control which modes
+            enter the frequency response calculation.
+
+        Returns
+        -------
+        results : ross.ClearanceResults
+            Results object containing:
+                - speed_rpm : float
+                - bearing_nodes : list
+                - magnitudes : ndarray
+                    Peak-to-peak vibration amplitude (microns)
+                - clearance : ndarray
+                    Radial clearance (microns)
+                - clearance_75 : ndarray
+                    75% of radial clearance (microns)
+
+        Examples
+        --------
+        >>> import ross as rs
+        >>> import numpy as np
+        >>> rotor = rs.rotor_example()
+        >>> speed = 600.0
+        >>> result = rotor.run_clearance_analysis(
+        ...     speed=speed,
+        ...     node=3,
+        ...     unbalance_magnitude=0.05,
+        ...     unbalance_phase=0.0,
+        ...     frequency=np.array([speed]),
+        ... )
+        >>> len(result["bearing_nodes"]) == 2
+        True
+        """
+        # Normalize speed to a scalar in rad/s.
+        speed = np.asarray(speed)
+        if speed.ndim == 0:
+            speed = float(speed)
+        elif speed.size == 1:
+            speed = float(speed.reshape(-1)[0])
+        else:
+            raise ValueError(
+                "'speed' must be a scalar (or an array with a single value) for "
+                "run_clearance_analysis."
+            )
+
+        # Convert speed to rpm
+        speed_rpm = Q_(speed, "rad/s").to("RPM").m
+
+        if frequency is None:
+            frequency = np.asarray([speed], dtype=float)
+        else:
+            frequency = np.asarray(frequency, dtype=float)
+
+        # ---  Unbalance response ---
+        response = self.run_unbalance_response(
+            node,
+            unbalance_magnitude,
+            unbalance_phase,
+            frequency,
+            modes=modes,
+        )
+
+        bearing_probes = [
+            Probe(b.n, Q_(0, "rad"), tag=getattr(b, "tag", None))
+            for b in self.bearing_elements
+        ]
+
+        df = response.data_magnitude(
+            probe=bearing_probes,
+            amplitude_units="um pkpk",
+        )
+
+        freq_col = df["frequency"].to_numpy(dtype=float)
+        freq_row = int(np.argmin(np.abs(freq_col - speed)))
+        magnitudes = df.loc[freq_row, df.columns != "frequency"].to_numpy(copy=True)
+
+        # --- STEP 5: API 617 vibration limit (Avl) ---
+        Avl = 25.4 * (12000 / speed_rpm)
+
+        Amax = np.nanmax(magnitudes)
+
+        if not np.isfinite(Amax) or Amax <= 0:
+            raise ValueError("Invalid vibration response.")
+
+        # --- STEP 6: Scale factor (Scc) ---
+        Scc = min(Avl / Amax, 6.0)
+
+        magnitudes_scaled = magnitudes * Scc
+
+        # --- STEP 7: Clearance ---
+        clearance = []
+        clearance_75 = []
+
+        for b in self.bearing_elements:
+            rc = getattr(b, "radial_clearance", None)
+
+            if rc is None:
+                clearance.append(np.nan)
+                clearance_75.append(np.nan)
+                continue
+
+            clr = Q_(rc, "m").to("micron").m
+            clr_val = float(np.nanmax(np.asarray(clr)))
+
+            clearance.append(clr_val)
+            clearance_75.append(0.75 * clr_val)
+
+        return ClearanceResults(
+            speed_rpm=speed_rpm,
+            bearing_nodes=[b.n for b in self.bearing_elements],
+            magnitudes=magnitudes_scaled,
+            clearance=np.array(clearance),
+            clearance_75=np.array(clearance_75),
         )
 
 

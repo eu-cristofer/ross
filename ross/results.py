@@ -31,6 +31,7 @@ __all__ = [
     "CriticalSpeedResults",
     "ModalResults",
     "CampbellResults",
+    "ClearanceResults",
     "FrequencyResponseResults",
     "ForcedResponseResults",
     "StaticResults",
@@ -45,7 +46,7 @@ __all__ = [
 
 # Define reference circle for orbits
 NUM_POINTS = 360
-CIRCLE = np.exp(1j * np.linspace(0, 2 * np.pi, NUM_POINTS))
+CIRCLE = np.exp(1j * np.linspace(0, 2 * np.pi, NUM_POINTS, endpoint=False))
 
 
 class Results(ABC):
@@ -254,6 +255,8 @@ class Orbit(Results):
     ----------
     node : int
         Orbit node in the rotor.
+    node_pos : float
+        Orbit node position in the rotor.
     ru_e : complex
         Element in the vector corresponding to the x direction.
     rv_e : complex
@@ -346,20 +349,27 @@ class Orbit(Results):
 
 @njit
 def _init_orbit(ru_e, rv_e):
+    """Helper function to initialize orbit parameters for plotting.
+
+    Parameters
+    ----------
+    ru_e : complex
+        Element in the vector corresponding to the x direction.
+    rv_e : complex
+        Element in the vector corresponding to the y direction.
+
+    Returns
+    -------
+    tuple
+        A tuple containing (x_circle, y_circle, angle, major_x, major_y,
+        major_angle, minor_angle, major_index, nu, nv, minor_axis,
+        major_axis, kappa).
+    """
     # data for plotting
     x_circle = np.real(ru_e * CIRCLE)
     y_circle = np.real(rv_e * CIRCLE)
     angle = np.arctan2(y_circle, x_circle)
     angle[angle < 0] = angle[angle < 0] + 2 * np.pi
-
-    # find major axis index looking at the first half circle
-    half = NUM_POINTS // 2
-    r_circle = np.sqrt(x_circle[:half] ** 2 + y_circle[:half] ** 2)
-    major_index = np.argmax(r_circle)
-    major_x = x_circle[major_index]
-    major_y = y_circle[major_index]
-    major_angle = angle[major_index]
-    minor_angle = major_angle + np.pi / 2
 
     # calculate T matrix
     ru = np.absolute(ru_e)
@@ -375,11 +385,11 @@ def _init_orbit(ru_e, rv_e):
     # fmt: on
     H = T @ T.T
 
-    lam = la.eigvals(H).astype(np.complex128)
+    lam, vecs = la.eig(H)
     # lam is the eigenvalue -> sqrt(lam) is the minor/major axis.
     # kappa encodes the relation between the axis and the precession.
-    minor = np.sqrt(lam.min())
-    major = np.sqrt(lam.max())
+    minor = np.sqrt(max(np.real(lam.min()), 0.0))
+    major = np.sqrt(max(np.real(lam.max()), 0.0))
 
     diff = nv - nu
 
@@ -401,6 +411,18 @@ def _init_orbit(ru_e, rv_e):
     minor_axis = np.real(minor)
     major_axis = np.real(major)
     kappa = np.real(kappa)
+
+    major_index = np.argmax(lam)
+    v = vecs[:, major_index]
+    v = np.real(v)
+    v = v / la.norm(v)
+
+    major_x = major * v[0]
+    major_y = major * v[1]
+    major_angle = np.arctan2(major_y, major_x)
+    if major_angle < 0:
+        major_angle += 2 * np.pi
+    minor_angle = major_angle + np.pi / 2
 
     return (
         x_circle,
@@ -481,6 +503,11 @@ class Shape(Results):
             self._calculate()
 
     def _classify(self):
+        """Classify the mode type.
+
+        Classifies the mode type as Lateral, Axial, or Torsional based on the
+        predominant degree of freedom in the eigenvector.
+        """
         self.mode_type = "Lateral"
 
         if self.number_dof == 6:
@@ -510,8 +537,10 @@ class Shape(Results):
             self.color = tableau_colors["green"]
 
     def _calculate_orbits(self):
+        """Calculate orbits for each node in the shape."""
         orbits = []
         whirl = []
+
         for node, node_pos in zip(self.nodes, self.nodes_pos):
             ru_e, rv_e = self._evec[self.number_dof * node : self.number_dof * node + 2]
             orbit = Orbit(node=node, node_pos=node_pos, ru_e=ru_e, rv_e=rv_e)
@@ -531,6 +560,10 @@ class Shape(Results):
             self.color = tableau_colors["gray"]
 
     def _calculate(self):
+        """Calculate shape data for plotting.
+
+        Includes calculation of orbits and node positions for visualization.
+        """
         if self.mode_type == "Lateral":
             evec = self._evec
             nodes = self.nodes
@@ -560,6 +593,9 @@ class Shape(Results):
             major_x = np.zeros(shape)
             major_y = np.zeros(shape)
             major_angle = np.zeros(shape)
+            x0 = np.zeros(shape)
+            y0 = np.zeros(shape)
+            angle_0 = np.zeros(shape)
 
             N1 = onn - 3 * zeta**2 + 2 * zeta**3
             N2 = zeta - 2 * zeta**2 + zeta**3
@@ -610,10 +646,15 @@ class Shape(Results):
                         orb = Orbit(
                             node=0, node_pos=0, ru_e=xn_complex[i], rv_e=yn_complex[i]
                         )
+
                         major[i] = orb.major_axis
                         major_x[i] = orb.major_x
                         major_y[i] = orb.major_y
                         major_angle[i] = orb.major_angle
+
+                        x0[i] = orb.x_circle[0]
+                        y0[i] = orb.y_circle[0]
+                        angle_0[i] = orb.angle[0]
 
                 n0 = n1
                 e0 = e1
@@ -625,6 +666,9 @@ class Shape(Results):
             self.major_x = major_x
             self.major_y = major_y
             self.major_angle = major_angle
+            self.x0 = x0
+            self.y0 = y0
+            self.angle_0 = angle_0
 
         else:
             self.whirl = "None"
@@ -687,6 +731,26 @@ class Shape(Results):
     def _plot_axial(
         self, plot_dimension=None, animation=False, length_units="m", fig=None
     ):
+        """Plot axial mode shape.
+
+        Parameters
+        ----------
+        plot_dimension : int, optional
+            Dimension of the plot (2 or 3).
+        animation : bool, optional
+            If True, creates an animated plot.
+            Default is False.
+        length_units : str, optional
+            Length units for the plot.
+            Default is 'm'.
+        fig : plotly.graph_objects.Figure, optional
+            Plotly figure object to add the plot to.
+
+        Returns
+        -------
+        fig : plotly.graph_objects.Figure
+            The figure object with the axial plot.
+        """
         if fig is None:
             fig = go.Figure()
 
@@ -919,6 +983,26 @@ class Shape(Results):
     def _plot_torsional(
         self, plot_dimension=None, animation=False, length_units="m", fig=None
     ):
+        """Plot torsional mode shape.
+
+        Parameters
+        ----------
+        plot_dimension : int, optional
+            Dimension of the plot (2 or 3).
+        animation : bool, optional
+            If True, creates an animated plot.
+            Default is False.
+        length_units : str, optional
+            Length units for the plot.
+            Default is 'm'.
+        fig : plotly.graph_objects.Figure, optional
+            Plotly figure object to add the plot to.
+
+        Returns
+        -------
+        fig : plotly.graph_objects.Figure
+            The figure object with the torsional plot.
+        """
         if fig is None:
             fig = go.Figure()
 
@@ -1177,17 +1261,15 @@ class Shape(Results):
             self._plot_axial(plot_dimension=2, length_units=length_units, fig=fig)
 
         else:
-            xn = self.major_x.copy()
-            yn = self.major_y.copy()
-            zn = self.zn.copy()
             nodes_pos = Q_(self.nodes_pos, "m").to(length_units).m
+            zn = self.zn.copy()
 
             if orientation == "major":
                 values = self.major_axis.copy()
             elif orientation == "x":
-                values = xn
+                values = self.x0.copy()
             elif orientation == "y":
-                values = yn
+                values = self.y0.copy()
             else:
                 raise ValueError(f"Invalid orientation {orientation}.")
 
@@ -1206,7 +1288,7 @@ class Shape(Results):
                         x=Q_(zn[n0:n1], "m").to(length_units).m,
                         y=values[n0:n1],
                         line=dict(color=self.color),
-                        customdata=Q_(self.major_angle[n0:n1], "rad").to(phase_units).m,
+                        customdata=Q_(self.angle_0[n0:n1], "rad").to(phase_units).m,
                         hovertemplate=(
                             f"Displacement: %{{y:.2f}}<br>"
                             + f"Angle {phase_units}: %{{customdata:.2f}}"
@@ -1262,6 +1344,27 @@ class Shape(Results):
     def _plot_orbits(
         self, animation=False, length_units="m", phase_units="rad", fig=None
     ):
+        """Plot orbits in 3D.
+
+        Parameters
+        ----------
+        animation : bool, optional
+            If True, creates an animated plot.
+            Default is False.
+        length_units : str, optional
+            Length units for the plot.
+            Default is 'm'.
+        phase_units : str, optional
+            Phase units for the plot.
+            Default is 'rad'.
+        fig : plotly.graph_objects.Figure, optional
+            Plotly figure object to add the plot to.
+
+        Returns
+        -------
+        fig : plotly.graph_objects.Figure
+            The figure object with the orbits plot.
+        """
         if fig is None:
             fig = go.Figure()
 
@@ -1645,6 +1748,7 @@ class ModalResults(Results):
         self.update_mode_shapes()
 
     def update_mode_shapes(self):
+        """Update mode shapes based on eigenvectors."""
         self.modes = self.evectors[: self.ndof]
         self.shapes = []
         for mode in range(len(self.wn)):
@@ -2216,6 +2320,11 @@ class CampbellResults(Results):
         Sort the Campbell result arrays (`wd`, `log_dec`, `damping_ratio`, `whirl_values`)
         by mode type, so as to force the axial and torsional modes to be at the end
         of the arrays.
+
+        Returns
+        -------
+        mode_type : np.ndarray
+            Array with mode types after sorting.
         """
 
         wd = self.wd
@@ -2530,6 +2639,36 @@ class CampbellResults(Results):
         fig=None,
         **kwargs,
     ):
+        """Helper method to plot Campbell diagram with mode shape.
+
+        Parameters
+        ----------
+        harmonics : list, optional
+            List with the harmonics to be plotted.
+        frequency_units : str, optional
+            Frequency units.
+        speed_units : str, optional
+            Speed units.
+        damping_parameter : str, optional
+            Damping parameter to show.
+        frequency_range : tuple, optional
+            Frequency range to plot.
+        damping_range : tuple, optional
+            Damping range to plot.
+        campbell_layout : dict, optional
+            Layout for Campbell plot.
+        mode_3d_layout : dict, optional
+            Layout for 3D mode plot.
+        animation : bool, optional
+            If True, enables animation.
+        fig : plotly.graph_objects.Figure, optional
+            Plotly figure object.
+
+        Returns
+        -------
+        tuple
+            A tuple containing (camp_fig, update_mode_3d).
+        """
         camp_fig = self.plot(
             harmonics=harmonics,
             frequency_units=frequency_units,
@@ -2597,6 +2736,30 @@ class CampbellResults(Results):
         damping_parameter,
         animation,
     ):
+        """Helper method to update 3D mode shape plot.
+
+        Parameters
+        ----------
+        speed : float
+            Speed value.
+        natural_frequency : float
+            Natural frequency value.
+        modal_results_crit : dict
+            Modal results for critical speeds.
+        speed_units : str
+            Speed units.
+        frequency_units : str
+            Frequency units.
+        damping_parameter : str
+            Damping parameter to show.
+        animation : bool
+            If True, enables animation.
+
+        Returns
+        -------
+        fig : plotly.graph_objects.Figure
+            Updated 3D mode shape figure.
+        """
         try:
             speed_key = min(
                 self.modal_results.keys(),
@@ -2752,6 +2915,7 @@ class FrequencyResponseResults(Results):
         frequency_units="rad/s",
         amplitude_units="m/N",
         fig=None,
+        line_shape="linear",
         **mag_kwargs,
     ):
         """Plot frequency response (magnitude) using Plotly.
@@ -2783,6 +2947,9 @@ class FrequencyResponseResults(Results):
             To use peak to peak use '<unit> pkpk' (e.g. 'm/N pkpk')
         fig : Plotly graph_objects.Figure()
             The figure object with the plot.
+        line_shape : str, optional
+            Line interpolation style for the Plotly trace (e.g. "linear", "spline").
+            Default is "linear".
         mag_kwargs : optional
             Additional key word arguments can be passed to change the plot layout only
             (e.g. width=1000, height=800, ...).
@@ -2825,7 +2992,7 @@ class FrequencyResponseResults(Results):
                 x=frequency_range,
                 y=mag[inp, out, :],
                 mode="lines",
-                line=dict(color=list(tableau_colors)[idx]),
+                line=dict(color=list(tableau_colors)[idx], shape=line_shape),
                 name=f"inp: node {inpn} | dof: {idof}<br>out: node {outn} | dof: {odof}",
                 legendgroup=f"inp: node {inpn} | dof: {idof}<br>out: node {outn} | dof: {odof}",
                 showlegend=True,
@@ -3479,6 +3646,7 @@ class ForcedResponseResults(Results):
         frequency_units="rad/s",
         amplitude_units="m",
         fig=None,
+        line_shape="linear",
         **kwargs,
     ):
         """Plot forced response (magnitude) using Plotly.
@@ -3507,6 +3675,9 @@ class ForcedResponseResults(Results):
             To use peak to peak use '<unit> pkpk' (e.g. 'm pkpk')
         fig : Plotly graph_objects.Figure()
             The figure object with the plot.
+        line_shape : str, optional
+            Line interpolation style for the Plotly trace (e.g. "linear", "spline").
+            Default is "linear".
         kwargs : optional
             Additional key word arguments can be passed to change the plot layout only
             (e.g. width=1000, height=800, ...).
@@ -3528,7 +3699,7 @@ class ForcedResponseResults(Results):
                     x=df["frequency"],
                     y=df[column],
                     mode="lines",
-                    line=dict(color=list(tableau_colors)[i]),
+                    line=dict(color=list(tableau_colors)[i], shape=line_shape),
                     name=column,
                     legendgroup=column,
                     showlegend=True,
@@ -5135,13 +5306,14 @@ class SummaryResults(Results):
         The figure object with the tables plot.
     """
 
-    def __init__(self, df_shaft, df_disks, df_bearings, brg_forces, CG, Ip, tag):
+    def __init__(self, df_shaft, df_disks, df_bearings, brg_forces, CG, Ip, It, tag):
         self.df_shaft = df_shaft
         self.df_disks = df_disks
         self.df_bearings = df_bearings
         self.brg_forces = brg_forces
         self.CG = CG
         self.Ip = Ip
+        self.It = It
         self.tag = tag
 
     def plot(self):
@@ -5179,6 +5351,7 @@ class SummaryResults(Results):
             "Total lenght": [self.df_shaft["nodes_pos_r"].iloc[-1]],
             "CG": ["{:.3f}".format(self.CG)],
             "Ip": ["{:.3e}".format(self.Ip)],
+            "It": ["{:.3e}".format(self.It)],
             "Rotor Mass": [
                 "{:.3f}".format(np.sum(self.df_shaft["m"]) + np.sum(self.df_disks["m"]))
             ],
@@ -6175,6 +6348,30 @@ class UCSResults(Results):
 
 
 class HarmonicBalanceResults(Results):
+    """Class used to store results and provide plots for Harmonic Balance Analysis.
+    Stores and provides methods for post-processing results from Harmonic Balance
+    analysis.
+
+    Parameters
+    ----------
+    rotor : ross.Rotor
+        Rotor object.
+    speed : float
+        Rotor rotational speed (rad/s).
+    t : array
+        Time array (s).
+    Qt : array
+        Complex displacement vector in frequency domain.
+    Qo : array
+        Static displacement vector.
+    dQ : array
+        Harmonic displacement coefficients.
+    dQ_s : array
+        Complex conjugate of harmonic coefficients.
+    n_harmonics : int
+        Number of harmonics.
+    """
+
     def __init__(self, rotor, speed, t, Qt, Qo, dQ, dQ_s, n_harmonics):
         self.rotor = rotor
         self.speed = speed
@@ -7442,3 +7639,148 @@ class SensitivityResults(Results):
         loaded_result.sensitivity_run_time_results = sensitivity_run_time_results
 
         return loaded_result
+
+
+class ClearanceResults(Results):
+    """Results for clearance analysis.
+
+    Stores vibration amplitudes at bearing locations and compares them with
+    bearing radial clearance limits. Inherits :class:`Results` for ``save`` /
+    ``load`` like other analysis result types.
+
+    Parameters
+    ----------
+    speed_rpm : float
+        Rotor speed in RPM.
+    bearing_nodes : list
+        List of bearing node numbers.
+    magnitudes : ndarray
+        Peak-to-peak vibration amplitudes (microns).
+    clearance : ndarray
+        Radial clearance (microns).
+    clearance_75 : ndarray
+        75% of radial clearance (microns).
+    """
+
+    def __init__(self, speed_rpm, bearing_nodes, magnitudes, clearance, clearance_75):
+        self.speed_rpm = speed_rpm
+        self.bearing_nodes = bearing_nodes
+        self.magnitudes = magnitudes
+        self.clearance = clearance
+        self.clearance_75 = clearance_75
+
+    def __getitem__(self, key):
+        """Enable dict-like access for backward compatibility."""
+        mapping = {
+            "speed_rpm": self.speed_rpm,
+            "bearing_nodes": self.bearing_nodes,
+            "magnitudes": self.magnitudes,
+            "clearance": self.clearance,
+            "clearance_75": self.clearance_75,
+        }
+        return mapping[key]
+
+    def plot(self, fig=None, **kwargs):
+        """
+        Plot vibration response against clearance limits.
+
+        Parameters
+        ----------
+        fig : plotly.graph_objects.Figure, optional
+            Existing figure to add traces to.
+        **kwargs : optional
+            Additional layout arguments.
+
+        Returns
+        -------
+        fig : plotly.graph_objects.Figure
+        """
+        import numpy as np
+        import plotly.graph_objects as go
+
+        if fig is None:
+            fig = go.Figure()
+
+        spacing = 4
+        x_positions = [i * spacing for i in range(len(self.bearing_nodes))]
+        x_labels = [str(n) for n in self.bearing_nodes]
+
+        # --- Background: Clearance 100%
+        fig.add_trace(
+            go.Bar(
+                x=x_positions,
+                y=self.clearance,
+                name="Radial Clearance Limit (100%)",
+                marker_color="red",
+                width=0.2,
+                hovertemplate="Clearance: %{y:.1f} µm<extra></extra>",
+                showlegend=True,
+                marker={"line": {"width": 0}},
+            )
+        )
+
+        # --- Background: Clearance 75%
+        fig.add_trace(
+            go.Bar(
+                x=x_positions,
+                y=self.clearance_75,
+                name="Alert Level (75%)",
+                marker_color="blue",
+                width=0.2,
+                hovertemplate="75% Limit: %{y:.1f} µm<extra></extra>",
+                showlegend=True,
+                marker={"line": {"width": 0}},
+            )
+        )
+
+        # Percent of radial clearance limit used (vibration / limit × 100).
+        mag = np.asarray(self.magnitudes, dtype=float)
+        lim100 = np.asarray(self.clearance, dtype=float)
+        lim75 = np.asarray(self.clearance_75, dtype=float)
+        per_clr = np.full_like(mag, np.nan, dtype=float)
+        per_clr_75 = np.full_like(mag, np.nan, dtype=float)
+        ok100 = np.isfinite(mag) & np.isfinite(lim100) & (lim100 > 0)
+        ok75 = np.isfinite(mag) & np.isfinite(lim75) & (lim75 > 0)
+        per_clr[ok100] = 100.0 * mag[ok100] / lim100[ok100]
+        per_clr_75[ok75] = 100.0 * mag[ok75] / lim75[ok75]
+
+        def _pct_label(x):
+            return f"{x:.1f}%" if np.isfinite(x) else "—"
+
+        # --- Vibration response
+        fig.add_trace(
+            go.Scatter(
+                x=x_positions,
+                y=self.magnitudes,
+                mode="lines+markers+text",
+                text=[
+                    f"{_pct_label(c75)}<br>{_pct_label(c100)}"
+                    for c75, c100 in zip(per_clr_75, per_clr)
+                ],
+                textposition="top left",
+                name=f"Vibration ({self.speed_rpm:.1f} RPM)",
+                line={"shape": "spline", "color": "purple", "width": 3},
+                marker={"size": 6},
+                hovertemplate="Amplitude: %{y:.2f} µm pkpk<extra></extra>",
+            )
+        )
+
+        fig.update_layout(
+            title="Vibration Response vs Bearing Clearance",
+            xaxis_title="Station (Node)",
+            yaxis_title="Amplitude / Clearance [µm]",
+            barmode="overlay",
+            hovermode="x unified",
+            plot_bgcolor="white",
+            legend={"orientation": "h", "y": 1.05},
+            xaxis=dict(
+                tickmode="array",
+                tickvals=x_positions,
+                ticktext=x_labels,
+                type="category",
+            ),
+            yaxis=dict(showgrid=True, gridcolor="lightgray"),
+            **kwargs,
+        )
+
+        return fig
