@@ -604,6 +604,9 @@ Lista completa de citações coletadas e pendentes em
 
 ---
 
+<!-- _class: lead -->
+<!-- _paginate: false -->
+
 ## Obrigado
 
 **Cristofer Antoni Souza Costa**
@@ -611,12 +614,7 @@ Lista completa de citações coletadas e pendentes em
 Orientador: Prof. Dr. Aldemir Aparecido Cavallini Junior
 
 **Repositório:** `ross/01_rotordynamic_simulation/`
-**Documentos vivos:**
 
-- [`README.md`](../README.md) — visão geral + status
-- [`docs/PLAN.md`](PLAN.md) — o que está sendo feito agora
-- [`docs/DECISIONS.md`](DECISIONS.md) — por que cada coisa é como é
-- [`docs/PAPER_NOTES.md`](PAPER_NOTES.md) — caminho até o artigo
-- [`sprints/`](../sprints/) — briefs executáveis sprint a sprint
+[`README.md`](../README.md) · [`PLAN.md`](PLAN.md) · [`DECISIONS.md`](DECISIONS.md) · [`PAPER_NOTES.md`](PAPER_NOTES.md) · [`sprints/`](../sprints/)
 
 *Perguntas, críticas e sugestões são bem-vindas.*
