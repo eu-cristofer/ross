@@ -2,7 +2,7 @@
 
 > **Author:** Cristofer Antoni Souza Costa — POSMEC / UFU
 > **Advisor:** Prof. Dr. Aldemir Aparecido Cavallini Junior
-> **Target deliverables:** M.Sc. thesis (Feb 2026) + companion journal paper
+> **Target deliverables:** M.Sc. thesis + companion journal paper
 > **Library:** [ROSS](https://github.com/petrobras/ross) (rotor) + custom HOS pipeline (this directory)
 
 A numerical study that replicates Sinha (2007), *Higher Order Spectra for Crack
@@ -18,16 +18,16 @@ FE-simulate (his §5 caveat).
 
 ## Status at a glance
 
-| Sprint | Title | Effort | Status | Key artefact |
-|---|---|---|---|---|
-| 00 | Modal FE validation against Sinha §3 / §5 | ½ day | **done** | `00a_modal_check.ipynb`, `SINHA_MODAL_TARGET` |
-| 01 | HOS core library + synthetic validation | 5 d | **done** | `signal_utils.py`, `plot_utils.py`, `06_hos_validation.ipynb`, `07_hos_demo.ipynb`, `08_hos_qpc_demo_ptbr.ipynb` |
-| 02 | Sinha-matched acquisition + persisted long records | 3 d | **in progress** | `run_campaign.py` (pending), `results/campaign.h5` (pending) |
-| 03 | ζ₁ = 0.3 % damping + modal-truncation convergence | 2 d | not started | damping-tuned `sinha_rotor.toml`, `00b_damping_check.ipynb` |
-| 04 | FE-to-FE reproduction of Sinha Figs. 9 & 10 | 3–5 d | not started | `07_sinha_fig10_replication.ipynb` |
-| 05 | Crack HOS at 650 / 750 RPM (Figs. 2, 3, 5, 7) | 1 w | not started | `08_crack_hos_650_750.ipynb`, side-by-side PDF |
-| 06 | Misalignment HOS at 750 / 900 RPM (Figs. 4, 6, 8) — **novel** | 1 w | not started | `09_misalignment_hos_750_900.ipynb`, side-by-side PDF |
-| 07 | Validation matrix + Methods draft | 3–5 d | not started | `results/validation_matrix.csv`, `01_article/03_methods_draft.md` |
+| Sprint | Title | Status | Key artefact |
+|---|---|---|---|
+| 00 | Modal FE validation against Sinha §3 / §5 | **done** | `00a_modal_check.ipynb`, `SINHA_MODAL_TARGET` |
+| 01 | HOS core library + synthetic validation | **done** | `signal_utils.py`, `plot_utils.py`, `06_hos_validation.ipynb`, `07_hos_demo.ipynb`, `08_hos_qpc_demo_ptbr.ipynb` |
+| 02 | Sinha-matched acquisition + persisted long records | **in progress** | `run_campaign.py` (pending), `results/campaign.h5` (pending) |
+| 03 | ζ₁ = 0.3 % damping + modal-truncation convergence | not started | damping-tuned `sinha_rotor.toml`, `00b_damping_check.ipynb` |
+| 04 | FE-to-FE reproduction of Sinha Figs. 9 & 10 | not started | `07_sinha_fig10_replication.ipynb` |
+| 05 | Crack HOS at 650 / 750 RPM (Figs. 2, 3, 5, 7) | not started | `08_crack_hos_650_750.ipynb`, side-by-side PDF |
+| 06 | Misalignment HOS at 750 / 900 RPM (Figs. 4, 6, 8) — **novel** | not started | `09_misalignment_hos_750_900.ipynb`, side-by-side PDF |
+| 07 | Validation matrix + Methods draft | not started | `results/validation_matrix.csv`, `01_article/03_methods_draft.md` |
 
 Sprint dependency graph and the 10 falsifiable Sinha claims being scored
 live in [`sprints/README.md`](sprints/README.md). Live tracking — what is

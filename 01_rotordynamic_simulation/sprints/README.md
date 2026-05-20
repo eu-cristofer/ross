@@ -20,16 +20,16 @@ Each sprint is a self-contained `.md` — purpose, prerequisites, work items, ex
 
 ## The sprints
 
-| # | File | Title | Effort | Artefact |
-|---|---|---|---|---|
-| 00 | [`00_modal_validation.md`](00_modal_validation.md) | Modal FE validation against Sinha §3 and §5 | ½ day | `01_rotordynamic_simulation/00a_modal_check.ipynb`, constant `SINHA_MODAL_TARGET` |
-| 01 | [`01_hos_core.md`](01_hos_core.md) | HOS core library + synthetic tests (positive + negative) | 5 days | `signal_utils.py`, `plot_utils.py`, `06_hos_validation.ipynb` |
-| 02 | [`02_acquisition_long_records.md`](02_acquisition_long_records.md) | Sinha-matched acquisition pipeline + HDF5 persistence | 3 days | extended `constants.py`, `run_campaign.py`, `results/campaign.h5` |
-| 03 | [`03_damping_and_modal_truncation.md`](03_damping_and_modal_truncation.md) | ζ₁ = 0.3 % damping calibration + `num_modes` convergence | 2 days | damping-tuned `sinha_rotor.toml`, `00b_damping_check.ipynb`, `03_convergence_table.md` |
-| 04 | [`04_sinha_fe_replication.md`](04_sinha_fe_replication.md) | Reproduce Sinha Figs. 9 & 10 (FE-to-FE) | 3–5 days | `07_sinha_fig10_replication.ipynb` |
-| 05 | [`05_crack_hos_replication.md`](05_crack_hos_replication.md) | Reproduce Sinha Figs. 2, 3, 5, 7 (crack at 650/750 RPM) | 1 week | `08_crack_hos_650_750.ipynb`, `reports/sinha_crack_side_by_side.pdf` |
-| 06 | [`06_misalignment_hos.md`](06_misalignment_hos.md) | Reproduce Sinha Figs. 4, 6, 8 (novel: Sinha could not FE-simulate misalignment) | 1 week | `09_misalignment_hos_750_900.ipynb`, `reports/sinha_misalignment_side_by_side.pdf` |
-| 07 | [`07_validation_report.md`](07_validation_report.md) | Scored validation matrix + Methods section draft | 3–5 days | `results/validation_matrix.csv`, `reports/sinha_validation_figures.pdf`, `01_article/03_methods_draft.md` |
+| # | File | Title | Artefact |
+|---|---|---|---|
+| 00 | [`00_modal_validation.md`](00_modal_validation.md) | Modal FE validation against Sinha §3 and §5 | `01_rotordynamic_simulation/00a_modal_check.ipynb`, constant `SINHA_MODAL_TARGET` |
+| 01 | [`01_hos_core.md`](01_hos_core.md) | HOS core library + synthetic tests (positive + negative) | `signal_utils.py`, `plot_utils.py`, `06_hos_validation.ipynb` |
+| 02 | [`02_acquisition_long_records.md`](02_acquisition_long_records.md) | Sinha-matched acquisition pipeline + HDF5 persistence | extended `constants.py`, `run_campaign.py`, `results/campaign.h5` |
+| 03 | [`03_damping_and_modal_truncation.md`](03_damping_and_modal_truncation.md) | ζ₁ = 0.3 % damping calibration + `num_modes` convergence | damping-tuned `sinha_rotor.toml`, `00b_damping_check.ipynb`, `03_convergence_table.md` |
+| 04 | [`04_sinha_fe_replication.md`](04_sinha_fe_replication.md) | Reproduce Sinha Figs. 9 & 10 (FE-to-FE) | `07_sinha_fig10_replication.ipynb` |
+| 05 | [`05_crack_hos_replication.md`](05_crack_hos_replication.md) | Reproduce Sinha Figs. 2, 3, 5, 7 (crack at 650/750 RPM) | `08_crack_hos_650_750.ipynb`, `reports/sinha_crack_side_by_side.pdf` |
+| 06 | [`06_misalignment_hos.md`](06_misalignment_hos.md) | Reproduce Sinha Figs. 4, 6, 8 (novel: Sinha could not FE-simulate misalignment) | `09_misalignment_hos_750_900.ipynb`, `reports/sinha_misalignment_side_by_side.pdf` |
+| 07 | [`07_validation_report.md`](07_validation_report.md) | Scored validation matrix + Methods section draft | `results/validation_matrix.csv`, `reports/sinha_validation_figures.pdf`, `01_article/03_methods_draft.md` |
 
 **Nominal total:** ≈ 5 calendar weeks.
 
