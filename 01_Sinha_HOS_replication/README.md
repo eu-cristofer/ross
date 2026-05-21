@@ -9,6 +9,7 @@ A numerical study that replicates Sinha (2007), *Higher Order Spectra for Crack
 and Misalignment Identification in the Shaft of a Rotating Machine*
 (*Structural Health Monitoring* 6(4), 325–334), using ROSS for the FE model
 and a custom bispectrum / trispectrum estimator built from `numpy` + `scipy`.
+
 The goal is to distinguish a breathing transverse crack from parallel
 coupling misalignment using only simulated probe signals — and, in the
 process, deliver the misalignment HOS signatures that Sinha could not
