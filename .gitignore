@@ -138,3 +138,20 @@ pip-selfcheck.json
 /.claude
 .mcp.json
 uv.lock
+
+# --- graphify outputs: ignore everything, commit only stable artifacts ---
+graphify-out/**
+!graphify-out/
+!graphify-out/graph.json
+!graphify-out/GRAPH_REPORT.md
+!graphify-out/graph.html
+
+# --- secrets / sensitive files ---
+**/*.pem
+**/*.key
+**/secrets/**
+
+# --- dotenv: ignore all, but keep the example ---
+**/.env
+**/.env.*
+!**/.env.example
